@@ -2,37 +2,61 @@
 
 ## Environment Variables
 
-Create a `.env` file in the root directory with your Supabase credentials:
+### Local Development
+Create a `.env.local` file in the root directory with your Supabase credentials:
 
 ```env
 VITE_SUPABASE_URL=https://ptrpavczxoutgxxyqcew.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key_here
 ```
 
-Replace `your_anon_key_here` with your Supabase Anon Public key.
+### Vercel Deployment
+Add these environment variables in your Vercel project settings:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
 ## Database Setup
 
-The waitlist feature expects a `waitlist` table in Supabase with the following structure:
+### 1. Create the waitlist table
 
+The waitlist table structure (as shown in your Supabase):
 ```sql
 CREATE TABLE waitlist (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  id SERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  email TEXT UNIQUE NOT NULL
 );
-
--- Add unique constraint for email (if not already added)
-ALTER TABLE waitlist ADD CONSTRAINT waitlist_email_key UNIQUE (email);
 ```
 
-This table will store email addresses from the coming-soon page.
+### 2. Enable Row Level Security (RLS)
+
+**IMPORTANT:** Run this SQL in your Supabase SQL Editor to fix the 401 error:
+
+```sql
+-- Enable Row Level Security on waitlist table
+ALTER TABLE waitlist ENABLE ROW LEVEL SECURITY;
+
+-- Create policy to allow anyone to insert into waitlist (anonymous signups)
+CREATE POLICY "Allow anonymous inserts to waitlist"
+ON waitlist
+FOR INSERT
+TO anon
+WITH CHECK (true);
+```
+
+This policy allows the anonymous (public) role to insert emails into the waitlist table, which is necessary for the coming-soon page to work.
 
 ## Features
 
-- **Email validation** - Basic client-side email validation
-- **Duplicate detection** - Prevents the same email from being added twice
-- **Success feedback** - Shows confirmation when email is added
-- **Error handling** - Displays helpful error messages
-- **Smooth scroll** - "Learn More" button scrolls to the preview section
+- **Email validation** - Client-side email format validation
+- **Duplicate detection** - Prevents the same email from being added twice (shows friendly error)
+- **Shake animation** - Input shakes when user tries to submit without entering email
+- **Success animation** - Nice animations when email is successfully added:
+  - Input border turns green
+  - Mail icon changes to checkmark with scale animation
+  - Success message slides down
+  - "Notify Me" button changes to "Added to Waitlist" with checkmark
+- **Error handling** - Displays helpful error messages with context
+- **Smooth scroll** - "Learn More" button smoothly scrolls to the preview section
+- **Enter key support** - Press Enter in the email field to submit
 

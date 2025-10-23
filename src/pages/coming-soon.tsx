@@ -12,7 +12,9 @@ export function ComingSoonPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [shake, setShake] = useState(false);
   const previewSectionRef = useRef<HTMLDivElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -23,18 +25,22 @@ export function ComingSoonPage() {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  const handleSubmitEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleNotifyMe = async () => {
+    // Reset states
     setError("");
     setSuccess(false);
+    setShake(false);
 
-    // Basic email validation
+    // Validate email
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setShake(true);
       setError("Please enter a valid email address");
-      setLoading(false);
+      emailInputRef.current?.focus();
+      setTimeout(() => setShake(false), 650);
       return;
     }
+
+    setLoading(true);
 
     try {
       const { error: supabaseError } = await supabase
@@ -42,18 +48,27 @@ export function ComingSoonPage() {
         .insert([{ email }]);
 
       if (supabaseError) {
+        console.error('Supabase error:', supabaseError);
         // Check if email already exists
         if (supabaseError.code === '23505') {
           setError("This email is already on the waitlist!");
         } else {
-          setError("Something went wrong. Please try again.");
+          setError(`Error: ${supabaseError.message}`);
         }
+        setShake(true);
+        setTimeout(() => setShake(false), 650);
       } else {
         setSuccess(true);
-        setEmail("");
+        // Clear email after short delay to show success
+        setTimeout(() => {
+          setEmail("");
+        }, 2000);
       }
     } catch (err) {
+      console.error('Unexpected error:', err);
       setError("Something went wrong. Please try again.");
+      setShake(true);
+      setTimeout(() => setShake(false), 650);
     } finally {
       setLoading(false);
     }
@@ -121,46 +136,55 @@ export function ComingSoonPage() {
           
           {/* Email Input - matching marketplace search bar style */}
           <div className="max-w-2xl mx-auto mb-8">
-            <form onSubmit={handleSubmitEmail}>
-              <div className="relative group">
-                {/* Glow effect on hover */}
-                <div className="absolute -inset-1 bg-white/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                
-                <div className="relative flex items-center bg-white/95 backdrop-blur-xl rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-white/20 overflow-hidden">
-                  <div className="flex-1 flex items-center">
+            <div className={`relative group transition-transform duration-150 ${shake ? 'animate-shake' : ''}`}>
+              {/* Glow effect on hover */}
+              <div className="absolute -inset-1 bg-white/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              
+              <div className={`relative flex items-center bg-white/95 backdrop-blur-xl rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.3)] border-2 overflow-hidden transition-all duration-300 ${
+                error ? 'border-red-500/50' : success ? 'border-[#19E28C]/50' : 'border-white/20'
+              }`}>
+                <div className="flex-1 flex items-center">
+                  {success ? (
+                    <CheckCircle className="w-5 h-5 text-[#19E28C] ml-6 shrink-0 animate-scale-in" />
+                  ) : (
                     <Mail className="w-5 h-5 text-[#9E0B61] ml-6 shrink-0" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email for early access..."
-                      disabled={loading || success}
-                      className="w-full px-4 py-4 bg-transparent text-[#9E0B61] placeholder:text-[#9E0B61]/50 outline-none text-base sm:text-lg disabled:opacity-50"
-                    />
-                  </div>
-                  <Button 
-                    type="submit"
-                    size="lg" 
-                    variant="gradient"
-                    disabled={loading || success}
-                    className="m-1.5 h-[48px] px-6 sm:px-8 shrink-0"
-                  >
-                    {loading ? "Joining..." : success ? <CheckCircle className="w-5 h-5" /> : "Join Waitlist"}
-                  </Button>
+                  )}
+                  <input
+                    ref={emailInputRef}
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setError("");
+                      setSuccess(false);
+                    }}
+                    placeholder={success ? "Successfully added! 🎉" : "Enter your email for early access..."}
+                    disabled={loading}
+                    className={`w-full px-4 py-4 bg-transparent outline-none text-base sm:text-lg disabled:opacity-50 ${
+                      success ? 'text-[#19E28C] placeholder:text-[#19E28C]' : 'text-[#9E0B61] placeholder:text-[#9E0B61]/50'
+                    }`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleNotifyMe();
+                      }
+                    }}
+                  />
                 </div>
               </div>
-            </form>
+            </div>
             
-            {/* Success/Error Messages */}
-            {success && (
-              <div className="mt-4 p-3 rounded-xl bg-[#19E28C]/20 backdrop-blur-xl border border-[#19E28C]/30 flex items-center justify-center gap-2">
-                <CheckCircle className="w-5 h-5 text-[#19E28C]" />
-                <p className="text-white text-sm">🎉 You're on the list! We'll notify you when we launch.</p>
+            {/* Error Message */}
+            {error && (
+              <div className="mt-4 p-3 rounded-xl bg-red-500/20 backdrop-blur-xl border border-red-500/30 flex items-center justify-center gap-2 animate-slide-down">
+                <p className="text-white text-sm">{error}</p>
               </div>
             )}
-            {error && (
-              <div className="mt-4 p-3 rounded-xl bg-red-500/20 backdrop-blur-xl border border-red-500/30 flex items-center justify-center gap-2">
-                <p className="text-white text-sm">{error}</p>
+            
+            {/* Success Message */}
+            {success && (
+              <div className="mt-4 p-3 rounded-xl bg-[#19E28C]/20 backdrop-blur-xl border border-[#19E28C]/30 flex items-center justify-center gap-2 animate-slide-down">
+                <CheckCircle className="w-5 h-5 text-[#19E28C]" />
+                <p className="text-white text-sm">🎉 You're on the list! We'll notify you when we launch.</p>
               </div>
             )}
           </div>
@@ -170,10 +194,22 @@ export function ComingSoonPage() {
             <Button 
               size="lg"
               className="group"
-              onClick={() => document.querySelector('input[type="email"]')?.focus()}
+              onClick={handleNotifyMe}
+              disabled={loading || success}
             >
-              Notify Me
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              {loading ? (
+                "Adding you..."
+              ) : success ? (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Added to Waitlist
+                </>
+              ) : (
+                <>
+                  Notify Me
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </Button>
             <Button 
               variant="glass-white" 
