@@ -30,21 +30,27 @@ CREATE TABLE waitlist (
 
 ### 2. Enable Row Level Security (RLS)
 
-**IMPORTANT:** Run this SQL in your Supabase SQL Editor to fix the 401 error:
+**IMPORTANT:** Run this SQL in your Supabase SQL Editor to fix RLS errors:
+
+Go to your Supabase Dashboard → SQL Editor → New Query, then run:
 
 ```sql
+-- First, drop any existing policies on the waitlist table
+DROP POLICY IF EXISTS "Allow anonymous inserts to waitlist" ON waitlist;
+DROP POLICY IF EXISTS "Enable insert for everyone" ON waitlist;
+
 -- Enable Row Level Security on waitlist table
 ALTER TABLE waitlist ENABLE ROW LEVEL SECURITY;
 
--- Create policy to allow anyone to insert into waitlist (anonymous signups)
-CREATE POLICY "Allow anonymous inserts to waitlist"
+-- Create policy to allow EVERYONE (authenticated and anonymous) to insert into waitlist
+CREATE POLICY "Enable insert for everyone"
 ON waitlist
 FOR INSERT
-TO anon
+TO public
 WITH CHECK (true);
 ```
 
-This policy allows the anonymous (public) role to insert emails into the waitlist table, which is necessary for the coming-soon page to work.
+This policy allows both anonymous and authenticated users to insert emails into the waitlist table. The `TO public` grants access to everyone, which is necessary for the coming-soon page to work.
 
 ## Features
 
