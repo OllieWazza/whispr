@@ -1,12 +1,18 @@
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import { Sparkles, Zap, Heart, Headphones, Star, TrendingUp, ArrowRight } from "lucide-react";
+import { Sparkles, Zap, Heart, Headphones, Star, TrendingUp, ArrowRight, Mail, CheckCircle } from "lucide-react";
 import whisprLogo from "figma:asset/b10b0041e74acd561a0e6d24f00ec15acfd7fa61.png";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "../lib/supabase";
 
 export function ComingSoonPage() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+  const previewSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -16,6 +22,46 @@ export function ComingSoonPage() {
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
+
+  const handleSubmitEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess(false);
+
+    // Basic email validation
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error: supabaseError } = await supabase
+        .from('waitlist')
+        .insert([{ email }]);
+
+      if (supabaseError) {
+        // Check if email already exists
+        if (supabaseError.code === '23505') {
+          setError("This email is already on the waitlist!");
+        } else {
+          setError("Something went wrong. Please try again.");
+        }
+      } else {
+        setSuccess(true);
+        setEmail("");
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const scrollToPreview = () => {
+    previewSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <main className="flex-1 relative overflow-hidden liquid-gradient">
@@ -73,11 +119,58 @@ export function ComingSoonPage() {
             for custom voice notes, intimate messages, and sensual content crafted just for you.
           </p>
           
+          {/* Email Input - matching marketplace search bar style */}
+          <div className="max-w-2xl mx-auto mb-8">
+            <form onSubmit={handleSubmitEmail}>
+              <div className="relative group">
+                {/* Glow effect on hover */}
+                <div className="absolute -inset-1 bg-white/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                <div className="relative flex items-center bg-white/95 backdrop-blur-xl rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.3)] border border-white/20 overflow-hidden">
+                  <div className="flex-1 flex items-center">
+                    <Mail className="w-5 h-5 text-[#9E0B61] ml-6 shrink-0" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your email for early access..."
+                      disabled={loading || success}
+                      className="w-full px-4 py-4 bg-transparent text-[#9E0B61] placeholder:text-[#9E0B61]/50 outline-none text-base sm:text-lg disabled:opacity-50"
+                    />
+                  </div>
+                  <Button 
+                    type="submit"
+                    size="lg" 
+                    variant="gradient"
+                    disabled={loading || success}
+                    className="m-1.5 h-[48px] px-6 sm:px-8 shrink-0"
+                  >
+                    {loading ? "Joining..." : success ? <CheckCircle className="w-5 h-5" /> : "Join Waitlist"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+            
+            {/* Success/Error Messages */}
+            {success && (
+              <div className="mt-4 p-3 rounded-xl bg-[#19E28C]/20 backdrop-blur-xl border border-[#19E28C]/30 flex items-center justify-center gap-2">
+                <CheckCircle className="w-5 h-5 text-[#19E28C]" />
+                <p className="text-white text-sm">🎉 You're on the list! We'll notify you when we launch.</p>
+              </div>
+            )}
+            {error && (
+              <div className="mt-4 p-3 rounded-xl bg-red-500/20 backdrop-blur-xl border border-red-500/30 flex items-center justify-center gap-2">
+                <p className="text-white text-sm">{error}</p>
+              </div>
+            )}
+          </div>
+          
           {/* CTA Buttons - matching home page style */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-16">
             <Button 
               size="lg"
               className="group"
+              onClick={() => document.querySelector('input[type="email"]')?.focus()}
             >
               Notify Me
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -86,6 +179,7 @@ export function ComingSoonPage() {
               variant="glass-white" 
               size="lg"
               className="group"
+              onClick={scrollToPreview}
             >
               <Sparkles className="w-5 h-5 group-hover:scale-110 transition-transform" />
               Learn More
@@ -137,7 +231,7 @@ export function ComingSoonPage() {
         </div>
 
         {/* Preview Section */}
-        <div className="glass-card rounded-3xl p-8 sm:p-12 mb-12">
+        <div ref={previewSectionRef} className="glass-card rounded-3xl p-8 sm:p-12 mb-12 scroll-mt-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/15 backdrop-blur-xl border border-white/25 text-white text-sm mb-6 glow-on-hover">
