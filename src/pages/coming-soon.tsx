@@ -182,9 +182,9 @@ export function ComingSoonPage() {
             
             {/* Success Message */}
             {success && (
-              <div className="mt-4 p-3 rounded-xl bg-[#19E28C]/20 backdrop-blur-xl border border-[#19E28C]/30 flex items-center justify-center gap-2 animate-slide-down">
-                <CheckCircle className="w-5 h-5 text-[#19E28C]" />
-                <p className="text-white text-sm">🎉 You're on the list! We'll notify you when we launch.</p>
+              <div className="mt-4 p-4 rounded-2xl liquid-gradient backdrop-blur-2xl border border-white/30 shadow-[0_8px_32px_rgba(158,11,97,0.3)] flex items-center justify-center gap-2 animate-slide-down">
+                <CheckCircle className="w-5 h-5 text-white" />
+                <p className="text-white font-medium text-sm">🎉 You're on the list! We'll notify you when we launch.</p>
               </div>
             )}
           </div>
