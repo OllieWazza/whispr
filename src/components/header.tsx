@@ -55,16 +55,12 @@ export function Header() {
 
   // Dynamic menu items based on user type
   const getMenuItems = () => {
-    const baseItems = [
-      { icon: Home, label: "Home", path: "/" },
-      { icon: Store, label: "Marketplace", path: "/marketplace" },
-      { icon: Trophy, label: "Leaderboards", path: "/leaderboards" },
-    ];
-
     if (!user) {
       // Guest user menu
       return [
-        ...baseItems,
+        { icon: Home, label: "Home", path: "/" },
+        { icon: Store, label: "Marketplace", path: "/marketplace" },
+        { icon: Trophy, label: "Leaderboards", path: "/leaderboards" },
         { icon: FileText, label: "Request Flow", path: "/request" },
       ];
     }
@@ -72,7 +68,9 @@ export function Header() {
     if (isCreator) {
       // Creator menu
       return [
-        ...baseItems,
+        { icon: Home, label: "Home", path: "/" },
+        { icon: Store, label: "Marketplace", path: "/marketplace" },
+        { icon: Trophy, label: "Leaderboards", path: "/leaderboards" },
         { icon: LayoutDashboard, label: "Dashboard", path: "/creator/dashboard" },
         { icon: Upload, label: "Upload Content", path: "/creator/upload" },
         { icon: User, label: "My Profile", path: `/profile/${user.id}` },
@@ -80,16 +78,19 @@ export function Header() {
     }
 
     if (isBuyer) {
-      // Buyer menu
+      // Buyer menu (no leaderboards)
       return [
-        ...baseItems,
-        { icon: FileText, label: "Request Flow", path: "/request" },
-        { icon: ShoppingCart, label: "My Orders", path: "/buyer-dashboard" },
+        { icon: Home, label: "Home", path: "/" },
+        { icon: Store, label: "Marketplace", path: "/marketplace" },
+        { icon: ShoppingCart, label: "My Dashboard", path: "/buyer-dashboard" },
         { icon: User, label: "My Profile", path: "/buyer-dashboard" },
       ];
     }
 
-    return baseItems;
+    return [
+      { icon: Home, label: "Home", path: "/" },
+      { icon: Store, label: "Marketplace", path: "/marketplace" },
+    ];
   };
 
   const menuItems = getMenuItems();
@@ -128,15 +129,18 @@ export function Header() {
 
           {/* Right - Actions */}
           <div className="flex items-center gap-2 sm:gap-3 justify-end">
-            <Link to="/become-creator">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="hidden lg:flex text-sm"
-              >
-                Become a creator
-              </Button>
-            </Link>
+            {/* Only show "Become a creator" if not logged in or if user is a buyer */}
+            {(!user || isBuyer) && (
+              <Link to="/become-creator">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="hidden lg:flex text-sm"
+                >
+                  Become a creator
+                </Button>
+              </Link>
+            )}
 
             {/* Desktop Menu Button - Liquid Dropdown */}
             <div className="hidden lg:block relative" ref={desktopMenuRef}>
@@ -224,8 +228,8 @@ export function Header() {
                           fullWidth 
                           size="lg"
                           variant="outline"
-                          onClick={async () => {
-                            await signOut();
+                          onClick={() => {
+                            signOut();
                             setIsDesktopMenuOpen(false);
                           }}
                           className="gap-2"
@@ -348,8 +352,8 @@ export function Header() {
                     fullWidth 
                     size="lg"
                     variant="outline"
-                    onClick={async () => {
-                      await signOut();
+                    onClick={() => {
+                      signOut();
                       setIsMobileMenuOpen(false);
                     }}
                     className="gap-2"

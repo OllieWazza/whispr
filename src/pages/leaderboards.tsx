@@ -168,7 +168,7 @@ function LeaderboardRow({ creator, rank, metric }: LeaderboardRowProps) {
     <div className={`transition-all duration-300 ${rank <= 3 ? "bg-white/5" : ""}`}>
       {/* Desktop Layout - Fully Clickable Row */}
       <Link 
-        to={`/profile/${creator.name.toLowerCase().replace(/\s+/g, '-')}`}
+        to={`/profile/${creator.id}`}
         className="hidden md:flex items-center gap-8 px-10 py-8 hover:bg-white/5 group cursor-pointer"
       >
         {/* Rank */}
@@ -206,7 +206,7 @@ function LeaderboardRow({ creator, rank, metric }: LeaderboardRowProps) {
 
       {/* Mobile Layout - Fully Clickable Card */}
       <Link 
-        to={`/profile/${creator.name.toLowerCase().replace(/\s+/g, '-')}`}
+        to={`/profile/${creator.id}`}
         className="md:hidden block"
       >
         <div className="relative group">
