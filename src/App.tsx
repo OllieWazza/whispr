@@ -44,7 +44,7 @@ function AppContent() {
         <Route path="/" element={<HomePage />} />
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/leaderboards" element={<LeaderboardsPage />} />
-        <Route path="/profile/:username" element={<CreatorProfilePage />} />
+        <Route path="/profile/:creatorId" element={<CreatorProfilePage />} />
         
         {/* Protected Creator Routes */}
         <Route path="/creator/dashboard" element={

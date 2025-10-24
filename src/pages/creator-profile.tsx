@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { 
@@ -20,7 +21,8 @@ import {
   Crown,
   ShoppingCart,
   X,
-  UserPlus
+  UserPlus,
+  Loader2
 } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { Input } from "../components/ui/input";
@@ -33,6 +35,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
+import { supabase } from "../lib/supabase";
+import { Database } from "../lib/database.types";
 
 interface ContentItem {
   id: string;
@@ -46,6 +50,13 @@ interface ContentItem {
 }
 
 export function CreatorProfilePage() {
+  const { creatorId } = useParams<{ creatorId: string }>();
+  const navigate = useNavigate();
+  
+  const [loading, setLoading] = useState(true);
+  const [creator, setCreator] = useState<any>(null);
+  const [listings, setListings] = useState<any[]>([]);
+  
   const [isFavorited, setIsFavorited] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAllContent, setShowAllContent] = useState(false);
@@ -54,20 +65,62 @@ export function CreatorProfilePage() {
   const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<string>("popular");
 
-  const creator = {
-    name: "Scarlett Vixen",
-    username: "@scarlettvixen",
-    image: "https://images.unsplash.com/photo-1693333412376-7e9ab19f38de?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzZW5zdWFsJTIwbW9kZWwlMjBwb3J0cmFpdHxlbnwxfHx8fDE3NjExMzIyNTJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    coverImage: "https://images.unsplash.com/photo-1704511659961-188aed53c8cc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzZW5zdWFsJTIwd29tYW4lMjBhdWRpbyUyMHJlY29yZGluZ3xlbnwxfHx8fDE3NjEyNDI5MjJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    rating: 5.0,
-    reviewCount: 342,
-    followers: 2845,
-    totalOrders: 1247,
-    responseTime: "1 hour",
-    completionRate: "99%",
-    bio: "Specializing in sultry ASMR and intimate storytelling. Let me bring your fantasies to life with my voice. 5+ years creating custom audio experiences that will leave you breathless. 💋",
-    tags: ["ASMR", "Sultry Voice", "Roleplay", "Sensual Stories", "GFE"],
-    memberSince: "Jan 2023",
+  useEffect(() => {
+    if (creatorId) {
+      fetchCreatorData();
+    }
+  }, [creatorId]);
+
+  const fetchCreatorData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch creator profile
+      const { data: creatorData, error: creatorError } = await supabase
+        .from('creators')
+        .select('*')
+        .eq('id', creatorId)
+        .single();
+
+      if (creatorError || !creatorData) {
+        console.error('Creator not found:', creatorError);
+        navigate('/404');
+        return;
+      }
+
+      // Fetch creator's listings
+      const { data: listingsData, error: listingsError } = await supabase
+        .from('listings')
+        .select(`
+          *,
+          listing_tiers(*)
+        `)
+        .eq('creator_id', creatorId);
+
+      setCreator({
+        id: creatorData.id,
+        name: creatorData.display_name,
+        username: `@${creatorData.display_name.toLowerCase().replace(/\s+/g, '')}`,
+        image: creatorData.profile_picture_url || "https://images.unsplash.com/photo-1693333412376-7e9ab19f38de?w=400",
+        coverImage: "https://images.unsplash.com/photo-1704511659961-188aed53c8cc?w=1080",
+        rating: creatorData.rating,
+        reviewCount: creatorData.total_completed_jobs,
+        followers: 0, // TODO: Implement followers system
+        totalOrders: creatorData.total_completed_jobs,
+        responseTime: creatorData.response_time,
+        completionRate: `${creatorData.satisfaction_rate}%`,
+        bio: creatorData.bio || "Professional creator on WHISPR",
+        tags: ["Creator"], // TODO: Add tags from categories
+        memberSince: new Date(creatorData.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      });
+
+      setListings(listingsData || []);
+    } catch (error) {
+      console.error('Error fetching creator:', error);
+      navigate('/404');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const highlightedContent = [
@@ -258,6 +311,30 @@ export function CreatorProfilePage() {
         return b.plays - a.plays;
     }
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#9E0B61] animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Loading creator profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!creator) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-white mb-4">Creator not found</p>
+          <Button onClick={() => navigate('/marketplace')}>
+            Back to Marketplace
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
