@@ -1,11 +1,14 @@
-import { DollarSign, ShoppingBag, Star, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, MessageSquare, Calendar, Users, Flame, Sparkles, Target, BarChart3, ThumbsUp, Reply, Send, Trophy } from "lucide-react";
+import { DollarSign, ShoppingBag, Star, TrendingUp, Clock, CheckCircle, AlertCircle, Eye, MessageSquare, Calendar, Users, Flame, Sparkles, Target, BarChart3, ThumbsUp, Reply, Send, Trophy, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
+import { Link } from "react-router-dom";
 
 // Mock data for charts and insights
 const earningsData = [
@@ -152,8 +155,85 @@ const visitorStats = [
 type TabType = "earnings" | "orders" | "ratings" | "views";
 
 export function DashboardCreator() {
+  const { user, profile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("earnings");
   const [replyText, setReplyText] = useState<{ [key: number]: string }>({});
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalEarnings: 0,
+    activeOrders: 0,
+    completedOrders: 0,
+    rating: 0,
+  });
+  const [listings, setListings] = useState<any[]>([]);
+  const [ordersData, setOrdersData] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user && profile) {
+      fetchDashboardData();
+    }
+  }, [user, profile]);
+
+  const fetchDashboardData = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+
+      // Fetch creator's listings
+      const { data: listingsData } = await supabase
+        .from('listings')
+        .select('*')
+        .eq('creator_id', user.id);
+
+      // Fetch creator's orders
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          buyers:buyer_id (
+            display_name
+          ),
+          listing_tiers (
+            tier_name,
+            price
+          )
+        `)
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false });
+
+      setListings(listingsData || []);
+      setOrdersData(ordersData || []);
+
+      // Calculate stats
+      const totalEarnings = (ordersData || []).reduce((sum, order) => sum + (order.creator_earnings || 0), 0);
+      const activeOrders = (ordersData || []).filter(o => o.status === 'pending' || o.status === 'in_progress').length;
+      const completedOrders = (ordersData || []).filter(o => o.status === 'completed').length;
+
+      setStats({
+        totalEarnings,
+        activeOrders,
+        completedOrders,
+        rating: profile?.user_type === 'creator' ? profile.rating : 0,
+      });
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#9E0B61] animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background py-8 sm:py-12 px-4 sm:px-6">
@@ -182,7 +262,7 @@ export function DashboardCreator() {
               <DollarSign className={`w-6 h-6 sm:w-8 sm:h-8 ${activeTab === "earnings" ? "text-white" : "text-[#9E0B61]"}`} />
               {activeTab === "earnings" && <div className="text-xs bg-white/20 px-2 py-1 rounded-full hidden sm:block">This month</div>}
             </div>
-            <div className="text-2xl sm:text-3xl mb-1" style={{ fontWeight: 700 }}>£3,240</div>
+            <div className="text-2xl sm:text-3xl mb-1" style={{ fontWeight: 700 }}>£{stats.totalEarnings.toFixed(2)}</div>
             <div className={`text-xs sm:text-sm ${activeTab === "earnings" ? "text-white/80" : "text-muted-foreground"}`}>Total Earnings</div>
             <div className="mt-2 sm:mt-3 flex items-center gap-1 text-xs sm:text-sm">
               <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-[#19E28C]" />
@@ -203,11 +283,11 @@ export function DashboardCreator() {
               <ShoppingBag className={`w-6 h-6 sm:w-8 sm:h-8 ${activeTab === "orders" ? "text-white" : "text-[#9E0B61]"}`} />
               {activeTab === "orders" && <div className="text-xs bg-white/20 px-2 py-1 rounded-full hidden sm:block">This month</div>}
             </div>
-            <div className="text-2xl sm:text-3xl mb-1" style={{ fontWeight: 700 }}>47</div>
+            <div className="text-2xl sm:text-3xl mb-1" style={{ fontWeight: 700 }}>{stats.completedOrders}</div>
             <div className={`text-xs sm:text-sm ${activeTab === "orders" ? "text-white/80" : "text-muted-foreground"}`}>Total Orders</div>
             <div className="mt-2 sm:mt-3 text-xs sm:text-sm text-[#19E28C]">
-              <span className="hidden sm:inline">2 pending • 1 in progress</span>
-              <span className="sm:hidden">3 active</span>
+              <span className="hidden sm:inline">{stats.activeOrders} active orders</span>
+              <span className="sm:hidden">{stats.activeOrders} active</span>
             </div>
           </button>
 
@@ -223,11 +303,11 @@ export function DashboardCreator() {
               <Star className={`w-6 h-6 sm:w-8 sm:h-8 ${activeTab === "ratings" ? "text-white" : "text-[#FFC34D]"}`} />
               {activeTab === "ratings" && <div className="text-xs bg-white/20 px-2 py-1 rounded-full hidden sm:block">This month</div>}
             </div>
-            <div className="text-2xl sm:text-3xl mb-1" style={{ fontWeight: 700 }}>4.9</div>
+            <div className="text-2xl sm:text-3xl mb-1" style={{ fontWeight: 700 }}>{stats.rating.toFixed(1)}</div>
             <div className={`text-xs sm:text-sm ${activeTab === "ratings" ? "text-white/80" : "text-muted-foreground"}`}>Average Rating</div>
             <div className={`mt-2 sm:mt-3 text-xs sm:text-sm ${activeTab === "ratings" ? "text-white/80" : "text-muted-foreground"}`}>
-              <span className="hidden sm:inline">298 reviews • 2 unread</span>
-              <span className="sm:hidden">298 reviews</span>
+              <span className="hidden sm:inline">{stats.completedOrders} reviews total</span>
+              <span className="sm:hidden">{stats.completedOrders} reviews</span>
             </div>
           </button>
 
