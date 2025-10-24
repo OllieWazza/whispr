@@ -1,12 +1,42 @@
 -- =====================================================
--- WHISPR DATABASE SCHEMA V2
--- Separate Buyers and Creators Tables
+-- WHISPR DATABASE SCHEMA - FRESH INSTALL
+-- This script will DROP all existing tables and recreate them
+-- WARNING: This will DELETE ALL DATA
 -- =====================================================
 
 -- =====================================================
--- 1. BUYERS TABLE
+-- STEP 1: DROP ALL EXISTING FUNCTIONS AND TRIGGERS FIRST
 -- =====================================================
-CREATE TABLE IF NOT EXISTS public.buyers (
+
+-- Drop functions first (this will cascade to drop triggers)
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+DROP FUNCTION IF EXISTS update_listing_rating() CASCADE;
+DROP FUNCTION IF EXISTS update_creator_stats() CASCADE;
+DROP FUNCTION IF EXISTS increment_instant_buy_purchases() CASCADE;
+
+-- =====================================================
+-- STEP 2: DROP ALL EXISTING TABLES
+-- =====================================================
+
+-- Drop tables in correct order (respecting foreign key constraints)
+DROP TABLE IF EXISTS public.reviews CASCADE;
+DROP TABLE IF EXISTS public.orders CASCADE;
+DROP TABLE IF EXISTS public.instant_buys CASCADE;
+DROP TABLE IF EXISTS public.listing_tiers CASCADE;
+DROP TABLE IF EXISTS public.listing_categories CASCADE;
+DROP TABLE IF EXISTS public.listings CASCADE;
+DROP TABLE IF EXISTS public.categories CASCADE;
+DROP TABLE IF EXISTS public.creators CASCADE;
+DROP TABLE IF EXISTS public.buyers CASCADE;
+DROP TABLE IF EXISTS public.users CASCADE;
+DROP TABLE IF EXISTS public.waitlist CASCADE;
+
+-- =====================================================
+-- STEP 3: CREATE NEW TABLES
+-- =====================================================
+
+-- 1. BUYERS TABLE
+CREATE TABLE public.buyers (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
@@ -15,10 +45,8 @@ CREATE TABLE IF NOT EXISTS public.buyers (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- =====================================================
 -- 2. CREATORS TABLE
--- =====================================================
-CREATE TABLE IF NOT EXISTS public.creators (
+CREATE TABLE public.creators (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
   display_name TEXT NOT NULL,
@@ -32,10 +60,8 @@ CREATE TABLE IF NOT EXISTS public.creators (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- =====================================================
 -- 3. CATEGORIES TABLE
--- =====================================================
-CREATE TABLE IF NOT EXISTS public.categories (
+CREATE TABLE public.categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
   slug TEXT UNIQUE NOT NULL,
@@ -44,26 +70,33 @@ CREATE TABLE IF NOT EXISTS public.categories (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insert default categories (skip if already exist)
-INSERT INTO public.categories (name, slug, description, icon) 
-SELECT * FROM (VALUES
-  ('Personal', 'personal', 'Personal messages and greetings', '👤'),
-  ('Voiceover', 'voiceover', 'Professional voiceover work', '🎙️'),
-  ('Product', 'product', 'Product reviews and promotions', '📦'),
-  ('Custom Video', 'custom-video', 'Personalized video content', '🎥'),
-  ('Custom Photo', 'custom-photo', 'Custom photo content', '📸'),
-  ('Voice Notes', 'voice-notes', 'Voice messages and notes', '🎵'),
-  ('Videos', 'videos', 'Video content', '🎬'),
-  ('Instant Buy', 'instant-buy', 'Ready-to-purchase content', '⚡')
-) AS v(name, slug, description, icon)
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.categories WHERE categories.slug = v.slug OR categories.name = v.name
-);
+-- Insert tone tags (used for tagging listings)
+INSERT INTO public.categories (name, slug, description, icon) VALUES
+  -- Row 1: Primary tone tags
+  ('Flirty', 'flirty', 'Playful and teasing voice tone', '😘'),
+  ('Playful', 'playful', 'Fun and lighthearted tone', '😄'),
+  ('Soothing', 'soothing', 'Calm and relaxing voice', '😌'),
+  ('Sultry', 'sultry', 'Deep and seductive tone', '🔥'),
+  ('Soft-spoken', 'soft-spoken', 'Gentle and quiet voice', '🤫'),
+  ('Energetic', 'energetic', 'Upbeat and lively tone', '⚡'),
+  ('Seductive', 'seductive', 'Alluring and enticing voice', '💋'),
+  ('Innocent', 'innocent', 'Sweet and pure tone', '😇'),
+  ('Dominant', 'dominant', 'Commanding and assertive voice', '👑'),
+  ('Submissive', 'submissive', 'Obedient and yielding tone', '🙇'),
+  ('Sweet', 'sweet', 'Kind and gentle voice', '🍬'),
+  ('Naughty', 'naughty', 'Mischievous and cheeky tone', '😈'),
+  -- Row 2: Secondary tone tags
+  ('Teasing', 'teasing', 'Playfully provocative voice', '😏'),
+  ('Confident', 'confident', 'Self-assured and strong tone', '💪'),
+  ('Shy', 'shy', 'Reserved and timid voice', '🙈'),
+  ('Professional', 'professional', 'Business-like and formal tone', '💼'),
+  ('Casual', 'casual', 'Relaxed and informal voice', '👕'),
+  ('Intimate', 'intimate', 'Close and personal tone', '💕'),
+  ('Passionate', 'passionate', 'Intense and emotional voice', '❤️‍🔥'),
+  ('Mysterious', 'mysterious', 'Enigmatic and intriguing tone', '🎭');
 
--- =====================================================
 -- 4. LISTINGS TABLE
--- =====================================================
-CREATE TABLE IF NOT EXISTS public.listings (
+CREATE TABLE public.listings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   creator_id UUID NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -81,20 +114,16 @@ CREATE TABLE IF NOT EXISTS public.listings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- =====================================================
 -- 5. LISTING_CATEGORIES (Junction Table)
--- =====================================================
-CREATE TABLE IF NOT EXISTS public.listing_categories (
+CREATE TABLE public.listing_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id UUID NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
   category_id UUID NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
   UNIQUE(listing_id, category_id)
 );
 
--- =====================================================
 -- 6. LISTING_TIERS TABLE
--- =====================================================
-CREATE TABLE IF NOT EXISTS public.listing_tiers (
+CREATE TABLE public.listing_tiers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id UUID NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
   tier_name TEXT CHECK (tier_name IN ('standard', 'premium', 'exclusive')),
@@ -106,10 +135,8 @@ CREATE TABLE IF NOT EXISTS public.listing_tiers (
   UNIQUE(listing_id, tier_name)
 );
 
--- =====================================================
 -- 7. INSTANT_BUYS TABLE
--- =====================================================
-CREATE TABLE IF NOT EXISTS public.instant_buys (
+CREATE TABLE public.instant_buys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id UUID NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -123,10 +150,8 @@ CREATE TABLE IF NOT EXISTS public.instant_buys (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- =====================================================
 -- 8. ORDERS TABLE
--- =====================================================
-CREATE TABLE IF NOT EXISTS public.orders (
+CREATE TABLE public.orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   buyer_id UUID NOT NULL REFERENCES public.buyers(id) ON DELETE CASCADE,
   creator_id UUID NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
@@ -145,10 +170,8 @@ CREATE TABLE IF NOT EXISTS public.orders (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- =====================================================
 -- 9. REVIEWS TABLE
--- =====================================================
-CREATE TABLE IF NOT EXISTS public.reviews (
+CREATE TABLE public.reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID UNIQUE NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
   reviewer_id UUID NOT NULL REFERENCES public.buyers(id) ON DELETE CASCADE,
@@ -159,17 +182,15 @@ CREATE TABLE IF NOT EXISTS public.reviews (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- =====================================================
 -- 10. WAITLIST TABLE
--- =====================================================
-CREATE TABLE IF NOT EXISTS public.waitlist (
+CREATE TABLE public.waitlist (
   id SERIAL PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- =====================================================
--- TRIGGERS AND FUNCTIONS
+-- STEP 4: CREATE TRIGGERS AND FUNCTIONS
 -- =====================================================
 
 -- Function to update updated_at timestamp
@@ -182,28 +203,24 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger for buyers table
-DROP TRIGGER IF EXISTS update_buyers_updated_at ON public.buyers;
 CREATE TRIGGER update_buyers_updated_at
   BEFORE UPDATE ON public.buyers
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger for creators table
-DROP TRIGGER IF EXISTS update_creators_updated_at ON public.creators;
 CREATE TRIGGER update_creators_updated_at
   BEFORE UPDATE ON public.creators
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger for listings table
-DROP TRIGGER IF EXISTS update_listings_updated_at ON public.listings;
 CREATE TRIGGER update_listings_updated_at
   BEFORE UPDATE ON public.listings
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger for orders table
-DROP TRIGGER IF EXISTS update_orders_updated_at ON public.orders;
 CREATE TRIGGER update_orders_updated_at
   BEFORE UPDATE ON public.orders
   FOR EACH ROW
@@ -222,7 +239,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_update_listing_rating ON public.reviews;
 CREATE TRIGGER trigger_update_listing_rating
   AFTER INSERT ON public.reviews
   FOR EACH ROW
@@ -247,7 +263,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_update_creator_stats ON public.orders;
 CREATE TRIGGER trigger_update_creator_stats
   AFTER UPDATE ON public.orders
   FOR EACH ROW
@@ -266,17 +281,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_increment_instant_buy_purchases ON public.orders;
 CREATE TRIGGER trigger_increment_instant_buy_purchases
   AFTER INSERT ON public.orders
   FOR EACH ROW
   EXECUTE FUNCTION increment_instant_buy_purchases();
 
 -- =====================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- STEP 5: ENABLE ROW LEVEL SECURITY
 -- =====================================================
 
--- Enable RLS on all tables
 ALTER TABLE public.buyers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.creators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
@@ -288,76 +301,66 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.waitlist ENABLE ROW LEVEL SECURITY;
 
+-- =====================================================
+-- STEP 6: CREATE RLS POLICIES
+-- =====================================================
+
 -- Buyers policies
-DROP POLICY IF EXISTS "Buyers can view their own profile" ON public.buyers;
+CREATE POLICY "Allow signup - buyers can insert their own profile"
+  ON public.buyers FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "Buyers can view their own profile"
   ON public.buyers FOR SELECT
   USING (auth.uid() = id);
 
-DROP POLICY IF EXISTS "Buyers can update their own profile" ON public.buyers;
 CREATE POLICY "Buyers can update their own profile"
   ON public.buyers FOR UPDATE
   USING (auth.uid() = id);
 
-DROP POLICY IF EXISTS "Buyers can insert their own profile" ON public.buyers;
-CREATE POLICY "Buyers can insert their own profile"
-  ON public.buyers FOR INSERT
+-- Creators policies
+CREATE POLICY "Allow signup - creators can insert their own profile"
+  ON public.creators FOR INSERT
   WITH CHECK (auth.uid() = id);
 
--- Creators policies
-DROP POLICY IF EXISTS "Anyone can view creator profiles" ON public.creators;
 CREATE POLICY "Anyone can view creator profiles"
   ON public.creators FOR SELECT
-  TO public
   USING (true);
 
-DROP POLICY IF EXISTS "Creators can update their own profile" ON public.creators;
 CREATE POLICY "Creators can update their own profile"
   ON public.creators FOR UPDATE
   USING (auth.uid() = id);
 
-DROP POLICY IF EXISTS "Creators can insert their own profile" ON public.creators;
-CREATE POLICY "Creators can insert their own profile"
-  ON public.creators FOR INSERT
-  WITH CHECK (auth.uid() = id);
-
 -- Categories policies
-DROP POLICY IF EXISTS "Anyone can view categories" ON public.categories;
 CREATE POLICY "Anyone can view categories"
   ON public.categories FOR SELECT
   TO public
   USING (true);
 
 -- Listings policies
-DROP POLICY IF EXISTS "Anyone can view listings" ON public.listings;
 CREATE POLICY "Anyone can view listings"
   ON public.listings FOR SELECT
   TO public
   USING (true);
 
-DROP POLICY IF EXISTS "Creators can insert their own listings" ON public.listings;
 CREATE POLICY "Creators can insert their own listings"
   ON public.listings FOR INSERT
   WITH CHECK (auth.uid() = creator_id);
 
-DROP POLICY IF EXISTS "Creators can update their own listings" ON public.listings;
 CREATE POLICY "Creators can update their own listings"
   ON public.listings FOR UPDATE
   USING (auth.uid() = creator_id);
 
-DROP POLICY IF EXISTS "Creators can delete their own listings" ON public.listings;
 CREATE POLICY "Creators can delete their own listings"
   ON public.listings FOR DELETE
   USING (auth.uid() = creator_id);
 
 -- Listing categories policies
-DROP POLICY IF EXISTS "Anyone can view listing categories" ON public.listing_categories;
 CREATE POLICY "Anyone can view listing categories"
   ON public.listing_categories FOR SELECT
   TO public
   USING (true);
 
-DROP POLICY IF EXISTS "Creators can manage their listing categories" ON public.listing_categories;
 CREATE POLICY "Creators can manage their listing categories"
   ON public.listing_categories FOR ALL
   USING (
@@ -369,13 +372,11 @@ CREATE POLICY "Creators can manage their listing categories"
   );
 
 -- Listing tiers policies
-DROP POLICY IF EXISTS "Anyone can view listing tiers" ON public.listing_tiers;
 CREATE POLICY "Anyone can view listing tiers"
   ON public.listing_tiers FOR SELECT
   TO public
   USING (true);
 
-DROP POLICY IF EXISTS "Creators can manage their listing tiers" ON public.listing_tiers;
 CREATE POLICY "Creators can manage their listing tiers"
   ON public.listing_tiers FOR ALL
   USING (
@@ -387,13 +388,11 @@ CREATE POLICY "Creators can manage their listing tiers"
   );
 
 -- Instant buys policies
-DROP POLICY IF EXISTS "Anyone can view instant buys" ON public.instant_buys;
 CREATE POLICY "Anyone can view instant buys"
   ON public.instant_buys FOR SELECT
   TO public
   USING (true);
 
-DROP POLICY IF EXISTS "Creators can manage their instant buys" ON public.instant_buys;
 CREATE POLICY "Creators can manage their instant buys"
   ON public.instant_buys FOR ALL
   USING (
@@ -405,34 +404,28 @@ CREATE POLICY "Creators can manage their instant buys"
   );
 
 -- Orders policies
-DROP POLICY IF EXISTS "Buyers can view their own orders" ON public.orders;
 CREATE POLICY "Buyers can view their own orders"
   ON public.orders FOR SELECT
   USING (auth.uid() = buyer_id);
 
-DROP POLICY IF EXISTS "Creators can view orders for their listings" ON public.orders;
 CREATE POLICY "Creators can view orders for their listings"
   ON public.orders FOR SELECT
   USING (auth.uid() = creator_id);
 
-DROP POLICY IF EXISTS "Buyers can create orders" ON public.orders;
 CREATE POLICY "Buyers can create orders"
   ON public.orders FOR INSERT
   WITH CHECK (auth.uid() = buyer_id);
 
-DROP POLICY IF EXISTS "Creators can update their orders" ON public.orders;
 CREATE POLICY "Creators can update their orders"
   ON public.orders FOR UPDATE
   USING (auth.uid() = creator_id);
 
 -- Reviews policies
-DROP POLICY IF EXISTS "Anyone can view reviews" ON public.reviews;
 CREATE POLICY "Anyone can view reviews"
   ON public.reviews FOR SELECT
   TO public
   USING (true);
 
-DROP POLICY IF EXISTS "Buyers can create reviews for their orders" ON public.reviews;
 CREATE POLICY "Buyers can create reviews for their orders"
   ON public.reviews FOR INSERT
   WITH CHECK (
@@ -446,17 +439,15 @@ CREATE POLICY "Buyers can create reviews for their orders"
   );
 
 -- Waitlist policies
-DROP POLICY IF EXISTS "Enable insert for everyone" ON public.waitlist;
 CREATE POLICY "Enable insert for everyone"
   ON public.waitlist FOR INSERT
   TO public
   WITH CHECK (true);
 
 -- =====================================================
--- STORAGE BUCKETS AND POLICIES
+-- STEP 7: CREATE STORAGE BUCKETS
 -- =====================================================
 
--- Create storage buckets
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('profile-pictures', 'profile-pictures', true)
 ON CONFLICT (id) DO NOTHING;
@@ -472,6 +463,10 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('order-deliveries', 'order-deliveries', false)
 ON CONFLICT (id) DO NOTHING;
+
+-- =====================================================
+-- STEP 8: CREATE STORAGE POLICIES
+-- =====================================================
 
 -- Storage policies for profile pictures (public bucket)
 DROP POLICY IF EXISTS "Anyone can view profile pictures" ON storage.objects;
@@ -534,6 +529,7 @@ CREATE POLICY "Creators can delete listing photos"
   );
 
 -- =====================================================
--- COMPLETE
+-- COMPLETE! 🎉
 -- =====================================================
+-- All tables, triggers, functions, RLS policies, and storage buckets created successfully!
 
