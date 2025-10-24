@@ -8,6 +8,7 @@ import { HomePage } from "./pages/home";
 import { MarketplacePage } from "./pages/marketplace";
 import { LeaderboardsPage } from "./pages/leaderboards";
 import { CreatorProfilePage } from "./pages/creator-profile";
+import { ListingDetailPage } from "./pages/listing-detail";
 import { CreatorDashboardPage } from "./pages/creator-dashboard";
 import { CreatorUploadPage } from "./pages/creator-upload";
 import { CheckoutPage } from "./pages/checkout";
@@ -45,6 +46,7 @@ function AppContent() {
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/leaderboards" element={<LeaderboardsPage />} />
         <Route path="/profile/:creatorId" element={<CreatorProfilePage />} />
+        <Route path="/listing/:listingId" element={<ListingDetailPage />} />
         
         {/* Protected Creator Routes */}
         <Route path="/creator/dashboard" element={
