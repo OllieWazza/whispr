@@ -126,38 +126,89 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userType: 'buyer' | 'creator'
   ): Promise<{ error: AuthError | null }> => {
     try {
+      console.log('🔵 [AuthContext] Starting signup process', { email, userType });
+      
       // 1. Create auth user
+      console.log('🔵 [AuthContext] Step 1: Creating auth user...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
       });
 
-      if (authError) return { error: authError };
-      if (!authData.user) return { error: new Error('Failed to create user') as AuthError };
+      if (authError) {
+        console.error('🔴 [AuthContext] Auth signup failed:', authError);
+        return { error: authError };
+      }
+      
+      if (!authData.user) {
+        console.error('🔴 [AuthContext] No user returned from signup');
+        return { error: new Error('Failed to create user') as AuthError };
+      }
 
-      // 2. Create user profile in the appropriate table
+      console.log('✅ [AuthContext] Auth user created:', {
+        userId: authData.user.id,
+        email: authData.user.email,
+        role: authData.user.role,
+      });
+
+      // Check current session
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log('🔵 [AuthContext] Current session after signup:', {
+        hasSession: !!sessionData.session,
+        sessionUserId: sessionData.session?.user?.id,
+        matches: sessionData.session?.user?.id === authData.user.id,
+      });
+
+      // 2. Wait a moment for the session to propagate
+      console.log('🔵 [AuthContext] Waiting 500ms for session to propagate...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 3. Create user profile in the appropriate table
       const tableName = userType === 'buyer' ? 'buyers' : 'creators';
-      const { error: profileError } = await supabase
+      console.log(`🔵 [AuthContext] Step 2: Creating profile in ${tableName} table...`, {
+        id: authData.user.id,
+        email: authData.user.email,
+        display_name: displayName,
+      });
+
+      const { data: profileData, error: profileError } = await supabase
         .from(tableName)
         .insert({
           id: authData.user.id,
           email: authData.user.email!,
           display_name: displayName,
-        });
+        })
+        .select()
+        .single();
 
       if (profileError) {
-        // If profile creation fails, we should ideally delete the auth user
-        // but Supabase doesn't allow this from client side
-        console.error('Profile creation error:', profileError);
+        console.error('🔴 [AuthContext] Profile creation failed:', {
+          error: profileError,
+          code: profileError.code,
+          message: profileError.message,
+          details: profileError.details,
+          hint: profileError.hint,
+          table: tableName,
+        });
         return { error: profileError as unknown as AuthError };
       }
 
-      // Refresh profile
-      await fetchProfile(authData.user.id);
+      console.log('✅ [AuthContext] Profile created successfully:', profileData);
 
+      // Check if email confirmation is required
+      if (authData.session) {
+        console.log('✅ [AuthContext] Session available immediately, user is confirmed');
+        // Refresh profile
+        console.log('🔵 [AuthContext] Step 3: Fetching profile...');
+        await fetchProfile(authData.user.id);
+      } else {
+        console.log('⚠️ [AuthContext] No session - email confirmation required');
+      }
+
+      console.log('✅ [AuthContext] Signup completed successfully!');
       return { error: null };
     } catch (error) {
-      console.error('Sign up error:', error);
+      console.error('🔴 [AuthContext] Unexpected signup error:', error);
       return { error: error as AuthError };
     }
   };
