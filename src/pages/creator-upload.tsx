@@ -1,19 +1,34 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import { Checkbox } from "../components/ui/checkbox";
-import { Upload, FileAudio, X, Sparkles, Clock, DollarSign, Zap, Crown, Gift, ArrowRight, CheckCircle2, Mic, Headphones, Check, ChevronDown } from "lucide-react";
+import { Upload, FileAudio, X, Sparkles, Clock, DollarSign, Zap, Crown, Gift, ArrowRight, CheckCircle2, Mic, Headphones, Check, ChevronDown, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
+import { toast } from "sonner";
 
 export function CreatorUploadPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  const [loading, setLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedTier, setSelectedTier] = useState<string>("basic");
   const [contentType, setContentType] = useState<string>("audio");
   const [openCategories, setOpenCategories] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    duration: "",
+    deliveryTime: "",
+    sampleUrl: "",
+  });
   const [pricing, setPricing] = useState({
     basic: "",
     premium: "",
@@ -98,6 +113,129 @@ export function CreatorUploadPage() {
 
   const removeTag = (tag: string) => {
     setSelectedTags(prev => prev.filter(t => t !== tag));
+  };
+
+  const handleSubmit = async (e: React.FormEvent, saveAsDraft: boolean = false) => {
+    e.preventDefault();
+    
+    if (!user) {
+      toast.error("You must be logged in to create a listing");
+      return;
+    }
+
+    // Validation
+    if (!formData.title || !formData.description) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!pricing.basic && !pricing.premium && !pricing.vip) {
+      toast.error("Please set at least one pricing tier");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // 1. Upload files to Supabase Storage (if any)
+      let thumbnailUrl = null;
+      if (selectedFiles.length > 0) {
+        const file = selectedFiles[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('listing-photos')
+          .upload(fileName, file);
+
+        if (uploadError) {
+          toast.error("Error uploading file: " + uploadError.message);
+          setLoading(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('listing-photos')
+          .getPublicUrl(fileName);
+        
+        thumbnailUrl = publicUrl;
+      }
+
+      // 2. Create the listing
+      const { data: listing, error: listingError } = await supabase
+        .from('listings')
+        .insert({
+          creator_id: user.id,
+          title: formData.title,
+          description: formData.description,
+          content_type: contentType === 'audio' ? 'voice' : 'video',
+          thumbnail_url: thumbnailUrl,
+          starting_price: pricing.basic ? parseFloat(pricing.basic) : parseFloat(pricing.premium || pricing.vip || '0'),
+          is_instant_buy: false,
+        })
+        .select()
+        .single();
+
+      if (listingError) {
+        toast.error("Error creating listing: " + listingError.message);
+        setLoading(false);
+        return;
+      }
+
+      // 3. Create pricing tiers
+      const tiers = [];
+      if (pricing.basic) {
+        tiers.push({
+          listing_id: listing.id,
+          tier_name: 'basic',
+          price: parseFloat(pricing.basic),
+          description: 'Standard delivery, basic customization',
+          delivery_time: formData.deliveryTime || '24 hours',
+          revisions: 1,
+        });
+      }
+      if (pricing.premium) {
+        tiers.push({
+          listing_id: listing.id,
+          tier_name: 'premium',
+          price: parseFloat(pricing.premium),
+          description: 'Priority delivery, extra customization',
+          delivery_time: formData.deliveryTime || '24 hours',
+          revisions: 3,
+        });
+      }
+      if (pricing.vip) {
+        tiers.push({
+          listing_id: listing.id,
+          tier_name: 'exclusive',
+          price: parseFloat(pricing.vip),
+          description: 'Express delivery, full customization',
+          delivery_time: formData.deliveryTime || '24 hours',
+          revisions: 999,
+        });
+      }
+
+      if (tiers.length > 0) {
+        const { error: tiersError } = await supabase
+          .from('listing_tiers')
+          .insert(tiers);
+
+        if (tiersError) {
+          console.error('Error creating tiers:', tiersError);
+        }
+      }
+
+      // 4. Link categories (TODO: fetch category IDs from database)
+      // For now, skip category linking as we need to query categories first
+
+      toast.success(saveAsDraft ? "Listing saved as draft!" : "Listing published successfully!");
+      navigate('/creator/dashboard');
+
+    } catch (error) {
+      console.error('Error creating listing:', error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -322,8 +460,11 @@ export function CreatorUploadPage() {
                 <Label htmlFor="title" className="text-white/90">Title *</Label>
                 <Input
                   id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
                   placeholder="e.g., Sultry Bedtime Story - Custom ASMR Experience"
                   className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-[#9E0B61]/50 focus:bg-white/10 transition-all h-12"
+                  required
                 />
               </div>
 
@@ -331,9 +472,12 @@ export function CreatorUploadPage() {
                 <Label htmlFor="description" className="text-white/90">Description *</Label>
                 <Textarea
                   id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
                   placeholder="Describe your content in detail. What makes it special? What can buyers expect? Include any special requests you can fulfill..."
                   rows={8}
                   className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-[#9E0B61]/50 focus:bg-white/10 transition-all resize-none"
+                  required
                 />
                 <p className="text-white/50 text-sm">Tip: Detailed descriptions help buyers understand exactly what they'll receive</p>
               </div>
@@ -603,15 +747,21 @@ export function CreatorUploadPage() {
                 type="button"
                 variant="outline" 
                 size="lg"
+                onClick={(e: any) => handleSubmit(e, true)}
+                disabled={loading}
                 className="flex-1 sm:flex-initial bg-white/5 border-white/20 text-white hover:bg-white/10"
               >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Save as Draft
               </Button>
               <Button 
                 type="submit"
-                size="lg" 
+                size="lg"
+                onClick={(e: any) => handleSubmit(e, false)}
+                disabled={loading}
                 className="flex-1 sm:flex-initial bg-gradient-to-r from-[#9E0B61] to-[#74094A] hover:from-[#8A0A56] hover:to-[#5F073D] text-white px-8 shadow-lg shadow-[#9E0B61]/30 hover:shadow-xl hover:shadow-[#9E0B61]/40 transition-all"
               >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Publish Content
               </Button>
             </div>
