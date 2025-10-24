@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StatusChip } from "../components/status-chip";
 import { EmptyStateCard } from "../components/empty-state-card";
 import { Button } from "../components/ui/button";
@@ -12,12 +12,16 @@ import {
   Sparkles,
   Edit2,
   Check,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from "lucide-react";
 import { LiquidTabs } from "../components/liquid-tabs";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
+import { useNavigate } from "react-router-dom";
 
 type OrderStatus = "Pending" | "In progress" | "Delivered" | "Cancelled";
 
@@ -167,18 +171,92 @@ const mockSuggested: FavoriteCreator[] = [
 ];
 
 export function BuyerDashboardPage() {
-  const [orders] = useState<Order[]>(mockOrders);
-  const [favorites] = useState<FavoriteCreator[]>(mockFavorites);
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [favorites] = useState<FavoriteCreator[]>(mockFavorites); // TODO: Implement favorites
   const [suggested] = useState<FavoriteCreator[]>(mockSuggested);
-  const [username, setUsername] = useState("JohnDoe");
+  const [username, setUsername] = useState("");
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [tempUsername, setTempUsername] = useState(username);
   const [selectedAvatar, setSelectedAvatar] = useState(predefinedAvatars[0]);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "delivered" | "favorites" | "suggested">("active");
 
-  const activeOrders = orders.filter(o => o.status === "pending" || o.status === "in-progress");
-  const deliveredOrders = orders.filter(o => o.status === "delivered");
+  useEffect(() => {
+    if (user && profile) {
+      setUsername(profile.display_name);
+      setTempUsername(profile.display_name);
+      if (profile.profile_picture_url) {
+        setSelectedAvatar(profile.profile_picture_url);
+      }
+      fetchOrders();
+    }
+  }, [user, profile]);
+
+  const fetchOrders = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      
+      // Fetch orders where buyer_id matches current user
+      const { data: ordersData, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          creators:seller_id (
+            display_name,
+            profile_picture_url
+          ),
+          listing_tiers (
+            tier_name
+          )
+        `)
+        .eq('buyer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching orders:', error);
+        setOrders(mockOrders); // Fallback to mock data
+        return;
+      }
+
+      if (!ordersData || ordersData.length === 0) {
+        setOrders([]);
+        return;
+      }
+
+      // Transform data to match Order interface
+      const transformedOrders: Order[] = ordersData.map((order: any) => ({
+        id: order.id,
+        creatorName: order.creators?.display_name || 'Unknown Creator',
+        creatorImage: order.creators?.profile_picture_url || predefinedAvatars[0],
+        tier: order.listing_tiers?.tier_name || 'Standard',
+        status: order.status === 'pending' ? 'Pending' :
+                order.status === 'in_progress' ? 'In progress' :
+                order.status === 'completed' ? 'Delivered' : 'Cancelled',
+        orderDate: new Date(order.created_at).toISOString().split('T')[0],
+        deliveryDate: order.completed_at ? new Date(order.completed_at).toISOString().split('T')[0] : undefined,
+        price: order.amount,
+        occasion: order.instructions || 'Custom Order',
+        hasReview: false, // TODO: Check if review exists
+        audioUrl: order.delivery_url || undefined,
+      }));
+
+      setOrders(transformedOrders);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      setOrders(mockOrders);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeOrders = orders.filter(o => o.status === "Pending" || o.status === "In progress");
+  const deliveredOrders = orders.filter(o => o.status === "Delivered");
 
   const stats = {
     totalPurchases: orders.length,
@@ -325,6 +403,17 @@ export function BuyerDashboardPage() {
       </div>
     </div>
   );
+
+  if (loading) {
+    return (
+      <main className="flex-1 py-8 px-4 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#9E0B61] animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Loading your dashboard...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-1 py-8 px-4">
