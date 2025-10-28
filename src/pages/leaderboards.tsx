@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Trophy, TrendingUp, DollarSign, ShoppingBag, Crown, Medal, Star, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Trophy, TrendingUp, DollarSign, ShoppingBag, Crown, Medal, Star, ChevronRight, Loader2 } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { Button } from "../components/ui/button";
 import { LiquidTabs } from "../components/liquid-tabs";
 import { Link } from "react-router-dom";
+import { supabaseAnon } from "../lib/supabase";
 
-const creatorsData = [
+// Mock data as fallback
+const mockCreatorsData = [
   {
     id: "1",
     name: "Scarlett Vixen",
@@ -254,6 +256,64 @@ function LeaderboardRow({ creator, rank, metric }: LeaderboardRowProps) {
 
 export function LeaderboardsPage() {
   const [selectedTab, setSelectedTab] = useState("week");
+  const [creatorsData, setCreatorsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCreators();
+  }, []);
+
+  const fetchCreators = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 [LEADERBOARDS] Starting fetch (using anon client - no auth wait)...');
+
+      console.log('🔄 [LEADERBOARDS] Querying creators table...');
+      const { data: creatorsData, error } = await supabaseAnon
+        .from('creators')
+        .select('*')
+        .order('rating', { ascending: false });
+
+      if (error) {
+        console.error('❌ [LEADERBOARDS] Database error:', error);
+        console.error('❌ [LEADERBOARDS] Error details:', JSON.stringify(error, null, 2));
+        console.error('❌ [LEADERBOARDS] This usually means RLS policies are blocking access');
+        console.error('❌ [LEADERBOARDS] Run fix-rls-policies-NOW.sql in Supabase to fix');
+        setLoading(false);
+        return;
+      }
+
+      if (!creatorsData || creatorsData.length === 0) {
+        console.warn('⚠️ [LEADERBOARDS] No creators found in database');
+        console.warn('⚠️ [LEADERBOARDS] Run dummy-data.sql to add test creators');
+        setLoading(false);
+        return;
+      }
+
+      console.log(`✅ [LEADERBOARDS] Found ${creatorsData.length} creators:`, creatorsData.map(c => c.display_name));
+
+      // Transform data to match leaderboard format
+      const transformedCreators = creatorsData.map((creator: any, index: number) => ({
+        id: creator.id,
+        name: creator.display_name,
+        image: creator.profile_picture_url || mockCreatorsData[index % mockCreatorsData.length].image,
+        rating: creator.rating || 5,
+        reviewCount: creator.total_completed_jobs || 0,
+        specialty: (creator.bio && creator.bio.length > 50 ? creator.bio.substring(0, 50) + '...' : creator.bio) || 'Content Creator',
+        fromPrice: 35,
+        weeklyOrders: Math.floor((creator.total_completed_jobs || 0) * 0.1),
+        revenue: (creator.total_completed_jobs || 0) * 45,
+        totalOrders: creator.total_completed_jobs || 0,
+      }));
+
+      console.log('✅ [LEADERBOARDS] Successfully loaded and transformed:', transformedCreators.length);
+      setCreatorsData(transformedCreators);
+    } catch (error) {
+      console.error('❌ [LEADERBOARDS] Unexpected error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getSortedCreators = () => {
     const sorted = [...creatorsData];
@@ -269,6 +329,17 @@ export function LeaderboardsPage() {
   };
 
   const sortedCreators = getSortedCreators();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#9E0B61] animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Loading leaderboards...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

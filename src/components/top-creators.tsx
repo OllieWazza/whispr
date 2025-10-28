@@ -3,7 +3,7 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { Star, Award, Eye, Zap } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Link } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { supabaseAnon } from "../lib/supabase";
 
 const mockTopCreators = [
   {
@@ -49,43 +49,76 @@ export function TopCreators() {
   const fetchTopCreators = async () => {
     try {
       setLoading(true);
+      console.log('🔄 [TOP CREATORS] Starting fetch (using anon client - no auth wait)...');
       
       // Fetch top 3 creators by rating
-      const { data, error } = await supabase
+      // Anonymous client doesn't need to wait for auth initialization
+      console.log('🔄 [TOP CREATORS] Querying creators table...');
+      
+      const { data, error } = await supabaseAnon
         .from('creators')
-        .select(`
-          *,
-          listings (
-            starting_price
-          )
-        `)
+        .select('*')
         .order('rating', { ascending: false })
-        .order('total_completed_jobs', { ascending: false })
         .limit(3);
 
-      if (error || !data || data.length === 0) {
-        setTopCreators(mockTopCreators);
+      if (error) {
+        console.error('❌ [TOP CREATORS] Database error:', error);
+        console.error('❌ [TOP CREATORS] Error code:', error.code);
+        console.error('❌ [TOP CREATORS] Error message:', error.message);
+        console.error('❌ [TOP CREATORS] Error details:', error.details);
+        console.error('❌ [TOP CREATORS] Error hint:', error.hint);
+        setLoading(false);
         return;
       }
 
-      // Transform data
-      const transformed = data.map((creator, index) => ({
-        id: creator.id,
-        rank: index + 1,
-        name: creator.display_name,
-        image: creator.profile_picture_url || mockTopCreators[index].image,
-        rating: creator.rating,
-        reviewCount: creator.total_completed_jobs,
-        fromPrice: creator.listings && creator.listings.length > 0
-          ? Math.min(...creator.listings.map((l: any) => l.starting_price))
-          : 50,
-        specialty: "Creator",
-      }));
+      if (!data || data.length === 0) {
+        console.warn('⚠️ [TOP CREATORS] No creators found in database');
+        console.warn('⚠️ [TOP CREATORS] Run dummy-data.sql to add test creators');
+        setLoading(false);
+        return;
+      }
 
+      console.log(`✅ [TOP CREATORS] Found ${data.length} creators:`, data.map(c => c.display_name));
+
+      // Fetch listings separately for these creators
+      const creatorIds = data.map((c: any) => c.id);
+      console.log('🔄 [TOP CREATORS] Fetching listings for creators:', creatorIds);
+      
+      const { data: listingsData, error: listingsError } = await supabaseAnon
+        .from('listings')
+        .select('creator_id, starting_price')
+        .in('creator_id', creatorIds);
+
+      if (listingsError) {
+        console.error('❌ [TOP CREATORS] Listings error:', listingsError);
+      } else {
+        console.log(`✅ [TOP CREATORS] Found ${listingsData?.length || 0} listings`);
+      }
+
+      // Transform data
+      const transformed = data.map((creator: any, index: number) => {
+        const creatorListings = listingsData?.filter((l: any) => l.creator_id === creator.id) || [];
+        const minPrice = creatorListings.length > 0
+          ? Math.min(...creatorListings.map((l: any) => l.starting_price))
+          : 50;
+
+        return {
+          id: creator.id,
+          rank: index + 1,
+          name: creator.display_name,
+          image: creator.profile_picture_url || mockTopCreators[index].image,
+          rating: creator.rating || 5,
+          reviewCount: creator.total_completed_jobs || 0,
+          fromPrice: minPrice,
+          specialty: "Creator",
+        };
+      });
+
+      console.log('✅ [TOP CREATORS] Successfully loaded and transformed:', transformed.length);
       setTopCreators(transformed);
     } catch (error) {
-      console.error('Error fetching top creators:', error);
-      setTopCreators(mockTopCreators);
+      console.error('❌ [TOP CREATORS] Unexpected error:', error);
+      setLoading(false);
     } finally {
       setLoading(false);
     }

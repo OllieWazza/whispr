@@ -113,23 +113,29 @@ export function ListingDetailPage() {
   }
 
   const tierComponents = tiers.map((tier) => {
+    // Build features array dynamically
+    const features = [
+      tier.description,
+      `${tier.revisions} revision${tier.revisions > 1 ? 's' : ''} included`,
+      tier.delivery_days ? `Delivered in ${tier.delivery_days} day${tier.delivery_days > 1 ? 's' : ''}` : 
+      tier.delivery_time ? `Delivered in ${tier.delivery_time}` : null,
+      tier.max_duration_minutes ? `Up to ${tier.max_duration_minutes} minutes` : null,
+      tier.custom_requirements ? tier.custom_requirements : null,
+    ].filter(Boolean);
+
     const tierConfig = {
       id: tier.id,
-      name: tier.tier_name === 'basic' ? 'Quick Whisper' :
-            tier.tier_name === 'premium' ? 'Premium Experience' :
-            'VIP Collection',
+      name: tier.tier_name === 'basic' ? 'Basic Tier' :
+            tier.tier_name === 'premium' ? 'Premium Tier' :
+            'VIP Tier',
       price: tier.price,
       period: "per order",
-      deliveryTime: tier.delivery_time,
+      deliveryTime: tier.delivery_days ? `${tier.delivery_days} days` : tier.delivery_time,
       popular: tier.tier_name === 'premium',
       icon: tier.tier_name === 'basic' ? Zap :
             tier.tier_name === 'premium' ? Sparkles :
             Crown,
-      features: [
-        tier.description,
-        `${tier.revisions} revision${tier.revisions > 1 ? 's' : ''} included`,
-        `Delivered in ${tier.delivery_time}`,
-      ],
+      features: features,
     };
     return tierConfig;
   });
@@ -245,15 +251,73 @@ export function ListingDetailPage() {
               </div>
             </div>
 
-            {/* Pricing Tiers */}
-            <div className="glass-card rounded-2xl p-6 backdrop-blur-2xl">
-              <h2 className="text-xl mb-6">Choose Your Tier</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {tierComponents.map((tier) => (
-                  <SubscriptionTierCard key={tier.id} tier={tier} />
-                ))}
+            {/* Pricing Section - Instant Buy or Custom Tiers */}
+            {listing.listing_type === 'instant' ? (
+              /* Instant Buy Section */
+              <div className="glass-card rounded-2xl p-6 backdrop-blur-2xl">
+                <div className="flex items-center gap-2 mb-6">
+                  <Zap className="w-5 h-5 text-[#9E0B61]" />
+                  <h2 className="text-xl">Instant Buy</h2>
+                </div>
+                
+                <div className="bg-gradient-to-br from-[#9E0B61]/10 to-transparent rounded-xl p-6 border border-[#9E0B61]/20 mb-4">
+                  <div className="flex items-baseline gap-2 mb-4">
+                    <span className="text-4xl text-white">£{listing.instant_buy_price || listing.starting_price}</span>
+                    <span className="text-white/60">one-time purchase</span>
+                  </div>
+                  
+                  {listing.max_quantity && (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-white/70">Availability</span>
+                        <span className="text-[#19E28C]">
+                          {listing.max_quantity - (listing.quantity_sold || 0)} of {listing.max_quantity} remaining
+                        </span>
+                      </div>
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#9E0B61] to-[#E879F9]" 
+                          style={{width: `${((listing.quantity_sold || 0) / listing.max_quantity) * 100}%`}}
+                        />
+                      </div>
+                      {listing.revoke_access_after_listen && (
+                        <p className="text-yellow-500/80 text-sm mt-2 flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          Audio deleted after listening - one time access only
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  <Button fullWidth size="lg" className="bg-gradient-to-r from-[#9E0B61] to-[#74094A]">
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Buy Now - £{listing.instant_buy_price || listing.starting_price}
+                  </Button>
+                </div>
+                
+                {listing.audio_duration && (
+                  <div className="flex items-center justify-between text-sm text-white/60 mb-2">
+                    <span>Duration</span>
+                    <span>{Math.floor(listing.audio_duration / 60)}:{String(listing.audio_duration % 60).padStart(2, '0')}</span>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between text-sm text-white/60">
+                  <span>Access</span>
+                  <span>{listing.revoke_access_after_listen ? 'Single listen' : 'Permanent'}</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Custom Listing Tiers */
+              <div className="glass-card rounded-2xl p-6 backdrop-blur-2xl">
+                <h2 className="text-xl mb-6">Choose Your Tier</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {tierComponents.map((tier) => (
+                    <SubscriptionTierCard key={tier.id} tier={tier} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}

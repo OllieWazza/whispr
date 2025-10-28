@@ -6,6 +6,7 @@ import whisprLogo from "figma:asset/b10b0041e74acd561a0e6d24f00ec15acfd7fa61.png
 export function SignupSuccessPage() {
   const [searchParams] = useSearchParams();
   const userType = searchParams.get("type") || "buyer"; // Default to buyer
+  const email = searchParams.get("email") || "";
 
   const isBuyer = userType === "buyer";
 
@@ -41,9 +42,14 @@ export function SignupSuccessPage() {
                 <p className="text-white font-medium text-sm mb-1">
                   📧 Please verify your email
                 </p>
-                <p className="text-white/90 text-xs leading-relaxed">
-                  We've sent a confirmation email to your inbox. Click the link in the email to activate your account and start {isBuyer ? 'browsing creators' : 'accepting orders'}.
+                <p className="text-white/90 text-xs leading-relaxed mb-2">
+                  We've sent a confirmation email to {email ? <strong>{email}</strong> : 'your inbox'}. Click the link in the email to activate your account.
                 </p>
+                {!isBuyer && (
+                  <p className="text-white/90 text-xs leading-relaxed">
+                    Once verified, you'll be taken to complete your creator profile setup.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -55,7 +61,7 @@ export function SignupSuccessPage() {
               : "Complete your profile to start earning."}
           </p>
 
-          {/* CTA Button */}
+          {/* CTA Button - Different for creators awaiting verification */}
           {isBuyer ? (
             <Link to="/marketplace" className="block">
               <Button className="w-full rounded-full mb-4">
@@ -64,12 +70,10 @@ export function SignupSuccessPage() {
               </Button>
             </Link>
           ) : (
-            <Link to="/creator/dashboard" className="block">
-              <Button className="w-full rounded-full mb-4">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Set up your profile
-              </Button>
-            </Link>
+            <Button className="w-full rounded-full mb-4" disabled>
+              <Mail className="w-4 h-4 mr-2" />
+              Waiting for email confirmation
+            </Button>
           )}
 
           {/* Secondary Action */}

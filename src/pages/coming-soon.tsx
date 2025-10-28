@@ -15,6 +15,16 @@ export function ComingSoonPage() {
   const [shake, setShake] = useState(false);
   const previewSectionRef = useRef<HTMLDivElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
+  
+  // Password gate state
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [showPasswordShake, setShowPasswordShake] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  
+  // Hardcoded password - change this to your desired password
+  const SITE_PASSWORD = "whispr2025";
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -24,6 +34,29 @@ export function ComingSoonPage() {
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
+  
+  // Check if site is already unlocked in localStorage
+  useEffect(() => {
+    const unlocked = localStorage.getItem('whispr_site_unlocked');
+    if (unlocked === 'true') {
+      setIsUnlocked(true);
+    }
+  }, []);
+  
+  const handlePasswordSubmit = () => {
+    setPasswordError("");
+    setShowPasswordShake(false);
+    
+    if (password === SITE_PASSWORD) {
+      localStorage.setItem('whispr_site_unlocked', 'true');
+      setIsUnlocked(true);
+    } else {
+      setPasswordError("Incorrect password. Please try again.");
+      setShowPasswordShake(true);
+      passwordInputRef.current?.focus();
+      setTimeout(() => setShowPasswordShake(false), 650);
+    }
+  };
 
   const handleNotifyMe = async () => {
     // Reset states
@@ -77,6 +110,108 @@ export function ComingSoonPage() {
   const scrollToPreview = () => {
     previewSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // Show password gate if not unlocked
+  if (!isUnlocked) {
+    return (
+      <main className="flex-1 relative overflow-hidden liquid-gradient min-h-screen">
+        {/* Animated gradient overlay */}
+        <div className="absolute inset-0 opacity-30 animate-gradient-shift">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#9E0B61]/20 via-transparent to-[#74094A]/20"></div>
+        </div>
+        
+        {/* Floating light orbs */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-white rounded-full blur-3xl animate-float-slow"></div>
+          <div className="absolute bottom-0 right-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-white rounded-full blur-3xl animate-float-slow" style={{ animationDelay: '3s' }}></div>
+        </div>
+
+        {/* Password Gate */}
+        <div className="relative z-10 flex items-center justify-center min-h-screen px-6">
+          <div className="max-w-md w-full">
+            {/* Logo */}
+            <div className="flex justify-center mb-8">
+              <div 
+                className="relative transition-transform duration-200 ease-out"
+                style={{
+                  transform: `translate(${(mousePosition.x - window.innerWidth / 2) / 50}px, ${(mousePosition.y - window.innerHeight / 2) / 50}px)`,
+                }}
+              >
+                <img 
+                  src={whisprLogo} 
+                  alt="WHISPR" 
+                  className="h-24 sm:h-32 drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]"
+                />
+              </div>
+            </div>
+
+            {/* Password Card */}
+            <div className="glass-card rounded-3xl p-8 text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/15 backdrop-blur-xl border border-white/25 text-white text-sm mb-6">
+                <div className="w-2 h-2 bg-[#19E28C] rounded-full animate-pulse"></div>
+                <span>Private Beta Access</span>
+              </div>
+              
+              <h1 className="font-display text-white mb-4" style={{ fontWeight: 700, fontSize: '2rem', lineHeight: 1.2 }}>
+                Enter Access Code
+              </h1>
+              <p className="text-white/90 mb-8">
+                This site is currently in private beta. Please enter your access code to continue.
+              </p>
+
+              {/* Password Input */}
+              <div className={`relative group transition-transform duration-150 mb-4 ${showPasswordShake ? 'animate-shake' : ''}`}>
+                <div className="absolute -inset-1 bg-white/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                <div className={`relative flex items-center bg-white/95 backdrop-blur-xl rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.3)] border-2 overflow-hidden transition-all duration-300 ${
+                  passwordError ? 'border-red-500/50' : 'border-white/20'
+                }`}>
+                  <input
+                    ref={passwordInputRef}
+                    type="password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setPasswordError("");
+                    }}
+                    placeholder="Enter access code..."
+                    className="w-full px-6 py-4 bg-transparent outline-none text-base sm:text-lg text-[#9E0B61] placeholder:text-[#9E0B61]/50"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handlePasswordSubmit();
+                      }
+                    }}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {passwordError && (
+                <div className="mb-4 p-3 rounded-xl bg-red-500/20 backdrop-blur-xl border border-red-500/30 flex items-center justify-center gap-2 animate-slide-down">
+                  <p className="text-white text-sm">{passwordError}</p>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <Button 
+                size="lg"
+                className="w-full"
+                onClick={handlePasswordSubmit}
+              >
+                <Zap className="w-5 h-5" />
+                Access Site
+              </Button>
+
+              <p className="text-white/60 text-sm mt-6">
+                Don't have access? Contact us to request an invite.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-1 relative overflow-hidden liquid-gradient">

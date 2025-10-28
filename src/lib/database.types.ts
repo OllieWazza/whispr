@@ -83,9 +83,11 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          creator_id: string
           title: string
           description: string
           content_type: 'voice' | 'photo' | 'video'
+          category: string | null
           thumbnail_url: string | null
           photo1_url: string | null
           photo2_url: string | null
@@ -100,9 +102,11 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          creator_id: string
           title: string
           description: string
           content_type: 'voice' | 'photo' | 'video'
+          category?: string | null
           thumbnail_url?: string | null
           photo1_url?: string | null
           photo2_url?: string | null
@@ -117,9 +121,11 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
+          creator_id?: string
           title?: string
           description?: string
           content_type?: 'voice' | 'photo' | 'video'
+          category?: string | null
           thumbnail_url?: string | null
           photo1_url?: string | null
           photo2_url?: string | null

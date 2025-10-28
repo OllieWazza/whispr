@@ -46,9 +46,9 @@ export function CookieBanner() {
           <div className="flex-1 space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="mb-2">We use cookies to improve WHISPR</h3>
+                <h3 className="mb-2">We value your privacy</h3>
                 <p className="text-sm text-[#DADBE1]">
-                  We use essential cookies for site functionality and optional cookies to improve your experience. You can manage your preferences at any time.{" "}
+                  We use essential browser storage (not cookies) for authentication and site functionality only. No tracking or advertising.{" "}
                   <Link to="/privacy" className="text-[#9E0B61] hover:underline">
                     Learn more
                   </Link>

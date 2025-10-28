@@ -3,6 +3,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useState, useEffect } from "react";
+import React from "react";
 import whisprLogo from "figma:asset/b10b0041e74acd561a0e6d24f00ec15acfd7fa61.png";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -82,8 +83,19 @@ export function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1A1B1E] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen liquid-gradient flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Animated gradient overlay */}
+      <div className="absolute inset-0 opacity-30 animate-gradient-shift">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#9E0B61]/20 via-transparent to-[#74094A]/20"></div>
+      </div>
+      
+      {/* Floating light orbs */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-white rounded-full blur-3xl animate-float-slow"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-white rounded-full blur-3xl animate-float-slow" style={{ animationDelay: '3s' }}></div>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <Link to="/">

@@ -1,8 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Header } from "./components/header";
 import { WhisprFooter } from "./components/whispr-footer";
 import { CookieBanner } from "./components/cookie-banner";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { useEffect } from "react";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { HomePage } from "./pages/home";
 import { MarketplacePage } from "./pages/marketplace";
@@ -11,6 +12,9 @@ import { CreatorProfilePage } from "./pages/creator-profile";
 import { ListingDetailPage } from "./pages/listing-detail";
 import { CreatorDashboardPage } from "./pages/creator-dashboard";
 import { CreatorUploadPage } from "./pages/creator-upload";
+import { UploadChoicePage } from "./pages/upload-choice";
+import { UploadInstantPage } from "./pages/upload-instant";
+import { UploadCustomPage } from "./pages/upload-custom";
 import { CheckoutPage } from "./pages/checkout";
 import { ButtonShowcasePage } from "./pages/button-showcase";
 import { RequestFlowPage } from "./pages/request-flow";
@@ -32,11 +36,44 @@ import { SignupBuyerPage } from "./pages/signup-buyer";
 import { SignupCreatorPage } from "./pages/signup-creator";
 import { SignupSuccessPage } from "./pages/signup-success";
 import { SignInPage } from "./pages/signin";
+import { ProfileSetupPage } from "./pages/profile-setup";
+import { MyProfilePage } from "./pages/my-profile";
 
 function AppContent() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, profile, loading } = useAuth();
   const isComingSoonPage = location.pathname === "/coming-soon";
-  const isAuthPage = ["/signup", "/signup/buyer", "/signup/creator", "/signup/success", "/signin"].includes(location.pathname);
+  const isAuthPage = ["/signup", "/signup/buyer", "/signup/creator", "/signup/success", "/signin", "/profile-setup"].includes(location.pathname);
+  
+  // Check if site is unlocked
+  const isSiteUnlocked = localStorage.getItem('whispr_site_unlocked') === 'true';
+  
+  // Redirect to coming-soon if not unlocked and not already on that page
+  useEffect(() => {
+    if (!isSiteUnlocked && !isComingSoonPage) {
+      navigate('/coming-soon');
+    }
+  }, [isSiteUnlocked, isComingSoonPage, navigate]);
+
+  // Handle email confirmation redirect for creators
+  useEffect(() => {
+    if (!loading && user && !profile && location.pathname === "/") {
+      // User just confirmed email but has no profile yet
+      const pendingData = localStorage.getItem('whispr_pending_profile');
+      if (pendingData) {
+        try {
+          const { userType } = JSON.parse(pendingData);
+          if (userType === 'creator') {
+            console.log('🔵 [App] Email confirmed, redirecting to profile setup...');
+            navigate('/profile-setup');
+          }
+        } catch (e) {
+          console.error('Error parsing pending profile data:', e);
+        }
+      }
+    }
+  }, [user, profile, loading, location.pathname, navigate]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -56,7 +93,22 @@ function AppContent() {
         } />
         <Route path="/creator/upload" element={
           <ProtectedRoute requiredUserType="creator">
-            <CreatorUploadPage />
+            <UploadChoicePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/creator/upload/instant" element={
+          <ProtectedRoute requiredUserType="creator">
+            <UploadInstantPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/creator/upload/custom" element={
+          <ProtectedRoute requiredUserType="creator">
+            <UploadCustomPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/my-profile" element={
+          <ProtectedRoute>
+            <MyProfilePage />
           </ProtectedRoute>
         } />
         
@@ -90,6 +142,7 @@ function AppContent() {
         <Route path="/signup/creator" element={<SignupCreatorPage />} />
         <Route path="/signup/success" element={<SignupSuccessPage />} />
         <Route path="/signin" element={<SignInPage />} />
+        <Route path="/profile-setup" element={<ProfileSetupPage />} />
         {/* Legal & Help Pages */}
         <Route path="/moderation-policy" element={<ModerationPolicyPage />} />
         <Route path="/refunds" element={<RefundsPage />} />

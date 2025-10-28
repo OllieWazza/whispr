@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MarketplaceHero } from "../components/marketplace-hero";
 import { MarketplaceFilters } from "../components/marketplace-filters";
 import { TrendingSection } from "../components/trending-section";
 import { PopularCategories } from "../components/popular-categories";
 import { TopCreatorsShowcase } from "../components/top-creators-showcase";
 import { CreatorCard } from "../components/creator-card";
+import { FeaturedListings } from "../components/featured-listings";
 import { Button } from "../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { supabase } from "../lib/supabase";
+import { supabaseAnon } from "../lib/supabase";
 import { Database } from "../lib/database.types";
 
 type Creator = Database['public']['Tables']['creators']['Row'] & {
@@ -127,67 +129,88 @@ const mockCreators = [
 ];
 
 export function MarketplacePage() {
+  const [searchParams] = useSearchParams();
+  const categoryFilter = searchParams.get('category');
+  
   const [creators, setCreators] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchCreators();
-  }, []);
+  }, [categoryFilter]);
 
   const fetchCreators = async () => {
     try {
       setLoading(true);
-      
-      // Fetch all creators with their listings
-      const { data: creatorsData, error } = await supabase
+      console.log('🔄 [MARKETPLACE] Starting fetch (using anon client - no auth wait)...');
+
+      // Fetch all creators using anonymous client for instant loading
+      console.log('🔄 [MARKETPLACE] Querying creators table...');
+      const { data: creatorsData, error } = await supabaseAnon
         .from('creators')
-        .select(`
-          *,
-          listings (
-            id,
-            title,
-            starting_price,
-            rating,
-            total_reviews,
-            content_type
-          )
-        `)
+        .select('*')
         .order('rating', { ascending: false });
 
       if (error) {
-        console.error('Error fetching creators:', error);
-        // Use mock data if fetch fails
-        setCreators(mockCreators);
+        console.error('❌ [MARKETPLACE] Database error:', error);
+        console.error('❌ [MARKETPLACE] Error details:', JSON.stringify(error, null, 2));
+        console.error('❌ [MARKETPLACE] This usually means RLS policies are blocking access');
+        console.error('❌ [MARKETPLACE] Run fix-rls-policies-NOW.sql in Supabase to fix');
+        setLoading(false);
         return;
       }
 
       if (!creatorsData || creatorsData.length === 0) {
-        // Use mock data if no creators in database
-        setCreators(mockCreators);
+        console.warn('⚠️ [MARKETPLACE] No creators found in database');
+        console.warn('⚠️ [MARKETPLACE] Run dummy-data.sql to add test creators');
+        setLoading(false);
         return;
       }
 
-      // Transform data to match CreatorCard component format
-      const transformedCreators = creatorsData.map((creator: Creator, index) => ({
-        id: creator.id,
-        name: creator.display_name,
-        image: creator.profile_picture_url || mockCreators[index % mockCreators.length].image,
-        rating: creator.rating,
-        reviewCount: creator.total_completed_jobs,
-        fromPrice: creator.listings && creator.listings.length > 0 
-          ? Math.min(...creator.listings.map((l: any) => l.starting_price))
-          : 35,
-        tags: ["Creator"], // We'll add proper tags later
-      }));
+      console.log(`✅ [MARKETPLACE] Found ${creatorsData.length} creators:`, creatorsData.map(c => c.display_name));
 
+      // Fetch listings separately
+      const creatorIds = creatorsData.map((c: any) => c.id);
+      console.log('🔄 [MARKETPLACE] Fetching listings for creators:', creatorIds);
+      
+      const { data: listingsData, error: listingsError } = await supabaseAnon
+        .from('listings')
+        .select('creator_id, starting_price')
+        .in('creator_id', creatorIds);
+
+      if (listingsError) {
+        console.error('❌ [MARKETPLACE] Listings error:', listingsError);
+      } else {
+        console.log(`✅ [MARKETPLACE] Found ${listingsData?.length || 0} listings`);
+      }
+
+      // Transform data to match CreatorCard component format
+      const transformedCreators = creatorsData.map((creator: any, index: number) => {
+        const creatorListings = listingsData?.filter((l: any) => l.creator_id === creator.id) || [];
+        const minPrice = creatorListings.length > 0
+          ? Math.min(...creatorListings.map((l: any) => l.starting_price))
+          : 35;
+
+        return {
+          id: creator.id,
+          name: creator.display_name,
+          image: creator.profile_picture_url || mockCreators[index % mockCreators.length].image,
+          rating: creator.rating || 4.5,
+          reviewCount: creator.total_completed_jobs || 0,
+          fromPrice: minPrice,
+          tags: ["Creator"],
+        };
+      });
+
+      console.log('✅ [MARKETPLACE] Successfully loaded and transformed:', transformedCreators.length);
       setCreators(transformedCreators);
     } catch (error) {
-      console.error('Unexpected error fetching creators:', error);
-      setCreators(mockCreators);
+      console.error('❌ [MARKETPLACE] Unexpected error:', error);
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -206,6 +229,22 @@ export function MarketplacePage() {
         <div className="mb-8">
           <MarketplaceFilters />
         </div>
+
+        {/* Category Filter Display */}
+        {categoryFilter && (
+          <div className="mb-6 flex items-center gap-3">
+            <h3 className="text-white text-lg">Category:</h3>
+            <div className="px-4 py-2 rounded-full bg-[#9E0B61]/20 border border-[#9E0B61]/40 text-[#E879F9]">
+              {categoryFilter}
+            </div>
+            <button 
+              onClick={() => window.location.href = '/marketplace'}
+              className="text-white/60 hover:text-white transition-colors text-sm"
+            >
+              Clear filter
+            </button>
+          </div>
+        )}
 
         {/* Results Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
@@ -294,6 +333,13 @@ export function MarketplacePage() {
           </button>
         </div>
       </div>
+
+      {/* Featured Listings Section */}
+      <FeaturedListings 
+        limit={12} 
+        categoryFilter={categoryFilter} 
+        showTitle={true}
+      />
 
       {/* Popular Creators Showcase - Bottom of Page */}
       <TopCreatorsShowcase />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CreatorCard } from "./creator-card";
-import { supabase } from "../lib/supabase";
+import { supabaseAnon } from "../lib/supabase";
 
 const mockCreators = [
   {
@@ -124,41 +124,73 @@ export function CreatorsGrid() {
   const fetchCreators = async () => {
     try {
       setLoading(true);
-      
+      console.log('🔄 [CREATORS GRID] Starting fetch (using anon client - no auth wait)...');
+
       // Fetch trending creators (top 12 by total_completed_jobs)
-      const { data, error } = await supabase
+      // Anonymous client doesn't need to wait for auth initialization
+      console.log('🔄 [CREATORS GRID] Querying creators table...');
+      
+      const { data, error } = await supabaseAnon
         .from('creators')
-        .select(`
-          *,
-          listings (
-            starting_price
-          )
-        `)
+        .select('*')
         .order('total_completed_jobs', { ascending: false })
         .limit(12);
 
-      if (error || !data || data.length === 0) {
-        setCreators(mockCreators);
+      if (error) {
+        console.error('❌ [CREATORS GRID] Database error:', error);
+        console.error('❌ [CREATORS GRID] Error code:', error.code);
+        console.error('❌ [CREATORS GRID] Error message:', error.message);
+        console.error('❌ [CREATORS GRID] Error details:', error.details);
+        setLoading(false);
         return;
       }
 
-      // Transform data
-      const transformed = data.map((creator, index) => ({
-        id: creator.id,
-        name: creator.display_name,
-        image: creator.profile_picture_url || mockCreators[index % mockCreators.length].image,
-        rating: creator.rating,
-        reviewCount: creator.total_completed_jobs,
-        fromPrice: creator.listings && creator.listings.length > 0
-          ? Math.min(...creator.listings.map((l: any) => l.starting_price))
-          : 35,
-        tags: ["Creator"],
-      }));
+      if (!data || data.length === 0) {
+        console.warn('⚠️ [CREATORS GRID] No creators found in database');
+        setLoading(false);
+        return;
+      }
 
+      console.log(`✅ [CREATORS GRID] Found ${data.length} creators:`, data.map(c => c.display_name));
+
+      // Fetch listings separately
+      const creatorIds = data.map((c: any) => c.id);
+      console.log('🔄 [CREATORS GRID] Fetching listings for creators:', creatorIds);
+      
+      const { data: listingsData, error: listingsError } = await supabaseAnon
+        .from('listings')
+        .select('creator_id, starting_price')
+        .in('creator_id', creatorIds);
+
+      if (listingsError) {
+        console.error('❌ [CREATORS GRID] Listings error:', listingsError);
+      } else {
+        console.log(`✅ [CREATORS GRID] Found ${listingsData?.length || 0} listings`);
+      }
+
+      // Transform data
+      const transformed = data.map((creator: any, index: number) => {
+        const creatorListings = listingsData?.filter((l: any) => l.creator_id === creator.id) || [];
+        const minPrice = creatorListings.length > 0
+          ? Math.min(...creatorListings.map((l: any) => l.starting_price))
+          : 35;
+
+        return {
+          id: creator.id,
+          name: creator.display_name,
+          image: creator.profile_picture_url || mockCreators[index % mockCreators.length].image,
+          rating: creator.rating || 4.5,
+          reviewCount: creator.total_completed_jobs || 0,
+          fromPrice: minPrice,
+          tags: ["Creator"],
+        };
+      });
+
+      console.log('✅ [CREATORS GRID] Successfully loaded and transformed:', transformed.length);
       setCreators(transformed);
     } catch (error) {
-      console.error('Error fetching creators:', error);
-      setCreators(mockCreators);
+      console.error('❌ [CREATORS GRID] Unexpected error:', error);
+      setLoading(false);
     } finally {
       setLoading(false);
     }

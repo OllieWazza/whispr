@@ -12,7 +12,6 @@ export function SignupCreatorPage() {
   const navigate = useNavigate();
   const { signUp, signInWithGoogle } = useAuth();
   const [formData, setFormData] = useState({
-    fullName: "",
     email: "",
     password: "",
     ageConfirmed: false,
@@ -22,10 +21,6 @@ export function SignupCreatorPage() {
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = "Please enter your full name.";
-    }
 
     if (!formData.email.trim()) {
       newErrors.email = "Please enter a valid email.";
@@ -56,10 +51,13 @@ export function SignupCreatorPage() {
     setErrors({});
 
     try {
-      const { error } = await signUp(
+      // Use email prefix as temporary display name (will be set properly on profile-setup)
+      const tempDisplayName = formData.email.split('@')[0];
+      
+      const { error, needsEmailConfirmation } = await signUp(
         formData.email,
         formData.password,
-        formData.fullName,
+        tempDisplayName,
         'creator'
       );
 
@@ -69,8 +67,14 @@ export function SignupCreatorPage() {
         return;
       }
 
-      // Success! Redirect to success page
-      navigate('/signup/success?type=creator');
+      // Success!
+      if (needsEmailConfirmation) {
+        // Redirect to success page to wait for email confirmation
+        navigate('/signup/success?type=creator&email=' + encodeURIComponent(formData.email));
+      } else {
+        // Email confirmed automatically, go to profile setup
+        navigate('/profile-setup');
+      }
     } catch (error) {
       console.error('Signup error:', error);
       setErrors({ submit: 'An unexpected error occurred. Please try again.' });
@@ -167,25 +171,6 @@ export function SignupCreatorPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Full Name */}
-            <div>
-              <Label htmlFor="fullName" className="text-white">Full name</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="Enter your full name"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                className={`mt-1.5 rounded-full bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-xl ${errors.fullName ? "border-red-500" : ""}`}
-              />
-              {errors.fullName && (
-                <div className="flex items-center gap-1.5 mt-1.5 text-xs text-red-400">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  {errors.fullName}
-                </div>
-              )}
-            </div>
-
             {/* Email */}
             <div>
               <Label htmlFor="email" className="text-white">Email address</Label>

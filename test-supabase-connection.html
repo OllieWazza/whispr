@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Supabase Connection</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #0a0a0a;
+      color: #fff;
+    }
+    .container {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #9E0B61;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      color: #888;
+      margin-bottom: 30px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #9E0B61;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 10px;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #8A0A56;
+      transform: translateY(-1px);
+    }
+    button:disabled {
+      background: #444;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .success {
+      background: rgba(25, 226, 140, 0.1);
+      border: 1px solid #19E28C;
+      color: #19E28C;
+    }
+    .error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid #EF4444;
+      color: #EF4444;
+    }
+    .info {
+      background: rgba(158, 11, 97, 0.1);
+      border: 1px solid #9E0B61;
+      color: #E879F9;
+    }
+    .label {
+      color: #aaa;
+      font-size: 12px;
+      margin-bottom: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .note {
+      background: rgba(255, 195, 77, 0.1);
+      border-left: 3px solid #FFC34D;
+      padding: 12px;
+      margin: 20px 0;
+      color: #FFC34D;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Supabase Connection Test</h1>
+    <p class="subtitle">Test your Supabase connection and query creators</p>
+
+    <div class="note">
+      💡 <strong>Where to find these:</strong><br>
+      1. Go to your Supabase Dashboard<br>
+      2. Select your project<br>
+      3. Click "Settings" → "API"<br>
+      4. Copy "Project URL" and "anon public" key
+    </div>
+
+    <div>
+      <div class="label">Supabase URL</div>
+      <input 
+        type="text" 
+        id="supabaseUrl" 
+        placeholder="https://your-project.supabase.co"
+      />
+    </div>
+
+    <div>
+      <div class="label">Supabase Anon Key</div>
+      <input 
+        type="password" 
+        id="supabaseKey" 
+        placeholder="Your anon/public key"
+      />
+    </div>
+
+    <button onclick="testConnection()" id="testBtn">Test Connection & Query Creators</button>
+
+    <div id="results"></div>
+  </div>
+
+  <script>
+    let supabase;
+
+    async function testConnection() {
+      const resultsDiv = document.getElementById('results');
+      const testBtn = document.getElementById('testBtn');
+      const url = document.getElementById('supabaseUrl').value.trim();
+      const key = document.getElementById('supabaseKey').value.trim();
+
+      resultsDiv.innerHTML = '';
+      testBtn.disabled = true;
+      testBtn.textContent = 'Testing...';
+
+      try {
+        // Validate inputs
+        if (!url || !key) {
+          throw new Error('Please provide both URL and Anon Key');
+        }
+
+        if (!url.includes('supabase.co')) {
+          throw new Error('URL should be in format: https://your-project.supabase.co');
+        }
+
+        addResult('info', '🔄 Initializing Supabase client...');
+        
+        // Initialize Supabase
+        const { createClient } = supabase;
+        const client = createClient(url, key);
+
+        addResult('success', '✅ Supabase client created successfully');
+
+        // Test 1: Query creators table
+        addResult('info', '\n🔄 Testing creators table query...');
+        
+        const startTime = Date.now();
+        const { data: creators, error: creatorsError } = await client
+          .from('creators')
+          .select('*')
+          .order('rating', { ascending: false })
+          .limit(5);
+
+        const queryTime = Date.now() - startTime;
+
+        if (creatorsError) {
+          addResult('error', `❌ Creators query failed:\n${JSON.stringify(creatorsError, null, 2)}`);
+        } else if (!creators || creators.length === 0) {
+          addResult('info', `⚠️ Creators table is empty (query took ${queryTime}ms)\n\nThe database is set up but has no creator data.\nRun your dummy-data.sql to populate it.`);
+        } else {
+          addResult('success', `✅ Found ${creators.length} creators (query took ${queryTime}ms)\n\nSample data:\n${JSON.stringify(creators.slice(0, 2), null, 2)}`);
+        }
+
+        // Test 2: Query listings table
+        addResult('info', '\n🔄 Testing listings table query...');
+        
+        const { data: listings, error: listingsError } = await client
+          .from('listings')
+          .select('id, creator_id, starting_price, title')
+          .limit(5);
+
+        if (listingsError) {
+          addResult('error', `❌ Listings query failed:\n${JSON.stringify(listingsError, null, 2)}`);
+        } else if (!listings || listings.length === 0) {
+          addResult('info', `⚠️ Listings table is empty\n\nYou have no listings yet.`);
+        } else {
+          addResult('success', `✅ Found ${listings.length} listings\n\nSample data:\n${JSON.stringify(listings.slice(0, 2), null, 2)}`);
+        }
+
+        // Test 3: Check auth status
+        addResult('info', '\n🔄 Checking authentication status...');
+        const { data: { session } } = await client.auth.getSession();
+        
+        if (session) {
+          addResult('success', `✅ Authenticated as: ${session.user.email}`);
+        } else {
+          addResult('info', `ℹ️ Not authenticated (this is fine for viewing public data)`);
+        }
+
+        addResult('success', '\n\n🎉 All tests complete!');
+
+      } catch (error) {
+        addResult('error', `❌ Test failed:\n${error.message}`);
+        console.error('Full error:', error);
+      } finally {
+        testBtn.disabled = false;
+        testBtn.textContent = 'Test Connection & Query Creators';
+      }
+    }
+
+    function addResult(type, message) {
+      const resultsDiv = document.getElementById('results');
+      const resultDiv = document.createElement('div');
+      resultDiv.className = `result ${type}`;
+      resultDiv.textContent = message;
+      resultsDiv.appendChild(resultDiv);
+    }
+
+    // Auto-fill from localStorage if available (for dev)
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedUrl = localStorage.getItem('test_supabase_url');
+      const savedKey = localStorage.getItem('test_supabase_key');
+      if (savedUrl) document.getElementById('supabaseUrl').value = savedUrl;
+      if (savedKey) document.getElementById('supabaseKey').value = savedKey;
+
+      // Save on input
+      document.getElementById('supabaseUrl').addEventListener('input', (e) => {
+        localStorage.setItem('test_supabase_url', e.target.value);
+      });
+      document.getElementById('supabaseKey').addEventListener('input', (e) => {
+        localStorage.setItem('test_supabase_key', e.target.value);
+      });
+    });
+  </script>
+</body>
+</html>
+

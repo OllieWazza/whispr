@@ -56,7 +56,7 @@ export function SignupBuyerPage() {
     setErrors({});
 
     try {
-      const { error } = await signUp(
+      const { error, needsEmailConfirmation } = await signUp(
         formData.email,
         formData.password,
         formData.fullName,
@@ -69,8 +69,12 @@ export function SignupBuyerPage() {
         return;
       }
 
-      // Success! Redirect to success page
-      navigate('/signup/success?type=buyer');
+      // Success! Redirect to success page with email if confirmation needed
+      if (needsEmailConfirmation) {
+        navigate('/signup/success?type=buyer&email=' + encodeURIComponent(formData.email));
+      } else {
+        navigate('/marketplace');
+      }
     } catch (error) {
       console.error('Signup error:', error);
       setErrors({ submit: 'An unexpected error occurred. Please try again.' });

@@ -123,72 +123,22 @@ export function CreatorProfilePage() {
     }
   };
 
-  const highlightedContent = [
-    {
-      id: "1",
-      title: "Good Morning Sunshine",
-      thumbnail: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400",
-      duration: "2:34",
-      price: 15,
-      category: "Wake Up Call",
-      plays: 1243,
-      rating: 5.0,
-    },
-    {
-      id: "2",
-      title: "Bedtime Whispers",
-      thumbnail: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
-      duration: "5:12",
-      price: 25,
-      category: "Sleep Aid",
-      plays: 2891,
-      rating: 5.0,
-    },
-    {
-      id: "3",
-      title: "Private Thoughts",
-      thumbnail: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400",
-      duration: "3:45",
-      price: 35,
-      category: "Intimate",
-      plays: 1876,
-      rating: 4.9,
-    },
-  ];
+  // Transform database listings to match ContentItem format
+  const allContent: ContentItem[] = listings.map((listing: any) => ({
+    id: listing.id,
+    title: listing.title,
+    thumbnail: listing.thumbnail_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
+    duration: "2:30", // TODO: Add duration field to database
+    price: listing.starting_price,
+    category: listing.category || "Uncategorized",
+    plays: listing.total_reviews * 10, // Approximate plays from reviews
+    rating: listing.rating,
+  }));
 
-  const allContent: ContentItem[] = [
-    ...highlightedContent,
-    {
-      id: "4",
-      title: "Girlfriend Experience",
-      thumbnail: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400",
-      duration: "4:20",
-      price: 30,
-      category: "GFE",
-      plays: 3421,
-      rating: 5.0,
-    },
-    {
-      id: "5",
-      title: "Teasing You",
-      thumbnail: "https://images.unsplash.com/photo-1640876305588-dbdab5869200?w=400",
-      duration: "6:15",
-      price: 40,
-      category: "Teasing",
-      plays: 2134,
-      rating: 4.9,
-    },
-    {
-      id: "6",
-      title: "After Dark Stories",
-      thumbnail: "https://images.unsplash.com/photo-1696337431362-ba8368c09bf7?w=400",
-      duration: "8:30",
-      price: 50,
-      category: "Storytelling",
-      plays: 1654,
-      rating: 5.0,
-    },
-  ];
+  // Top 3 listings as highlighted content
+  const highlightedContent = allContent
+    .sort((a, b) => b.rating - a.rating || b.plays - a.plays)
+    .slice(0, 3);
 
   const subscriptionTiers = [
     {

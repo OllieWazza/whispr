@@ -1,5 +1,6 @@
 import { Heart, Headphones, Drama, MessageCircle, Mic, Sparkles } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { useNavigate } from "react-router-dom";
 
 const categories = [
   {
@@ -53,6 +54,13 @@ const categories = [
 ];
 
 export function PopularCategories() {
+  const navigate = useNavigate();
+
+  const handleCategoryClick = (categoryName: string) => {
+    // Navigate to marketplace with category filter
+    navigate(`/marketplace?category=${encodeURIComponent(categoryName)}`);
+  };
+
   return (
     <div className="bg-card/30 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-6 py-12">
@@ -68,6 +76,7 @@ export function PopularCategories() {
             return (
               <button
                 key={category.id}
+                onClick={() => handleCategoryClick(category.name)}
                 className="group relative overflow-hidden rounded-3xl bg-card border border-border transition-all duration-300 hover:scale-[1.02] hover:border-[#9E0B61]/50 hover:shadow-[0_8px_32px_rgba(158,11,97,0.2)] active:scale-[0.98] flex-shrink-0 w-[320px] snap-start"
               >
                 {/* Image Background */}
