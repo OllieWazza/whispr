@@ -17,10 +17,6 @@ export interface Database {
           display_name: string
           profile_picture_url: string | null
           bio: string | null
-          rating: number
-          total_completed_jobs: number
-          response_time: string
-          satisfaction_rate: number
           created_at: string
           updated_at: string
         }
@@ -31,10 +27,6 @@ export interface Database {
           display_name: string
           profile_picture_url?: string | null
           bio?: string | null
-          rating?: number
-          total_completed_jobs?: number
-          response_time?: string
-          satisfaction_rate?: number
           created_at?: string
           updated_at?: string
         }
@@ -45,10 +37,47 @@ export interface Database {
           display_name?: string
           profile_picture_url?: string | null
           bio?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      creators: {
+        Row: {
+          id: string
+          display_name: string
+          profile_picture_url: string | null
+          bio: string | null
+          rating: number
+          total_completed_jobs: number
+          response_time: string
+          satisfaction_rate: number
+          thank_you_video_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          display_name: string
+          profile_picture_url?: string | null
+          bio?: string | null
           rating?: number
           total_completed_jobs?: number
           response_time?: string
           satisfaction_rate?: number
+          thank_you_video_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          display_name?: string
+          profile_picture_url?: string | null
+          bio?: string | null
+          rating?: number
+          total_completed_jobs?: number
+          response_time?: string
+          satisfaction_rate?: number
+          thank_you_video_url?: string | null
           created_at?: string
           updated_at?: string
         }

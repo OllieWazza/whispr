@@ -16,6 +16,8 @@ import { UploadChoicePage } from "./pages/upload-choice";
 import { UploadInstantPage } from "./pages/upload-instant";
 import { UploadCustomPage } from "./pages/upload-custom";
 import { CheckoutPage } from "./pages/checkout";
+import { BasketPage } from "./pages/basket";
+import { ThankYouPage } from "./pages/thank-you";
 import { ButtonShowcasePage } from "./pages/button-showcase";
 import { RequestFlowPage } from "./pages/request-flow";
 import { BuyerDashboardPage } from "./pages/buyer-dashboard";
@@ -118,9 +120,15 @@ function AppContent() {
             <BuyerDashboardPage />
           </ProtectedRoute>
         } />
+        <Route path="/basket" element={<BasketPage />} />
         <Route path="/checkout" element={
           <ProtectedRoute requiredUserType="buyer">
             <CheckoutPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/thank-you" element={
+          <ProtectedRoute requiredUserType="buyer">
+            <ThankYouPage />
           </ProtectedRoute>
         } />
         <Route path="/request" element={

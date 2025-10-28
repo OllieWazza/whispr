@@ -19,7 +19,12 @@ import {
   Edit3,
   Save,
   Camera,
-  Upload
+  Upload,
+  Video,
+  Sparkles,
+  TrendingUp,
+  Play,
+  Trash2
 } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { useAuth } from "../contexts/AuthContext";
@@ -70,6 +75,9 @@ export function MyProfilePage() {
   const [listings, setListings] = useState<any[]>([]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [thankYouVideoFile, setThankYouVideoFile] = useState<File | null>(null);
+  const [thankYouVideoPreview, setThankYouVideoPreview] = useState<string>("");
   
   const [editForm, setEditForm] = useState({
     displayName: "",
@@ -125,6 +133,12 @@ export function MyProfilePage() {
 
       setCreator(creatorProfile);
       setListings(listingsData || []);
+      
+      // Set thank you video if exists
+      if (creatorData.thank_you_video_url) {
+        setThankYouVideoPreview(creatorData.thank_you_video_url);
+      }
+      
       // Detect if current picture is a default one
       let selectedDefault = "";
       if (creatorData.profile_picture_url) {
@@ -147,6 +161,93 @@ export function MyProfilePage() {
       console.error('Error fetching creator:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleThankYouVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('video/')) {
+        alert('Please select a video file');
+        return;
+      }
+      
+      // Validate file size (max 50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        alert('Video file must be less than 50MB');
+        return;
+      }
+      
+      setThankYouVideoFile(file);
+      setThankYouVideoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleUploadThankYouVideo = async () => {
+    if (!user || !thankYouVideoFile) return;
+
+    setIsUploadingVideo(true);
+    try {
+      // Upload video to storage
+      const fileExt = thankYouVideoFile.name.split('.').pop();
+      const fileName = `${user.id}-thankyou-${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('thank-you-videos')
+        .upload(fileName, thankYouVideoFile);
+
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('thank-you-videos')
+        .getPublicUrl(fileName);
+
+      // Update creator profile with video URL
+      const { error: updateError } = await supabase
+        .from('creators')
+        .update({
+          thank_you_video_url: publicUrl,
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setThankYouVideoPreview(publicUrl);
+      setThankYouVideoFile(null);
+      alert('Thank you video uploaded successfully!');
+      
+      // Refresh data
+      await fetchCreatorData();
+    } catch (error: any) {
+      console.error('Error uploading video:', error);
+      alert('Failed to upload video. Please try again.');
+    } finally {
+      setIsUploadingVideo(false);
+    }
+  };
+
+  const handleDeleteThankYouVideo = async () => {
+    if (!user || !confirm('Are you sure you want to delete your thank you video?')) return;
+
+    try {
+      // Update creator profile to remove video URL
+      const { error: updateError } = await supabase
+        .from('creators')
+        .update({
+          thank_you_video_url: null,
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setThankYouVideoPreview("");
+      alert('Thank you video deleted successfully!');
+      
+      // Refresh data
+      await fetchCreatorData();
+    } catch (error: any) {
+      console.error('Error deleting video:', error);
+      alert('Failed to delete video. Please try again.');
     }
   };
 
@@ -510,6 +611,141 @@ export function MyProfilePage() {
 
           {/* Sidebar */}
           <div className="space-y-4 sm:space-y-6">
+            {/* Thank You Video Card */}
+            <div className="glass-card rounded-2xl p-5 sm:p-6 backdrop-blur-2xl bg-gradient-to-br from-[#9E0B61]/10 to-transparent border-[#9E0B61]/20">
+              <div className="flex items-center gap-2 mb-3">
+                <Video className="w-5 h-5 text-[#E879F9]" />
+                <h3 className="text-base sm:text-lg">Thank You Video</h3>
+              </div>
+              
+              <div className="bg-black/20 rounded-lg p-3 mb-3 border border-[#FFC34D]/20">
+                <div className="flex items-start gap-2">
+                  <TrendingUp className="w-4 h-4 text-[#FFC34D] mt-0.5 shrink-0" />
+                  <p className="text-xs text-white/80">
+                    <strong className="text-[#FFC34D]">+45% recurring purchases</strong> when you add a personal thank you message!
+                  </p>
+                </div>
+              </div>
+
+              {thankYouVideoPreview ? (
+                <div className="space-y-3">
+                  <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+                    <video
+                      src={thankYouVideoPreview}
+                      controls
+                      className="w-full h-full"
+                      controlsList="nodownload"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      fullWidth
+                      onClick={handleDeleteThankYouVideo}
+                      className="bg-white/5 border-white/10 hover:bg-red-500/20 hover:border-red-500/50 gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      fullWidth
+                      onClick={() => {
+                        const input = document.getElementById('thankYouVideoUpload');
+                        input?.click();
+                      }}
+                      className="bg-white/5 border-white/10 hover:bg-white/10 gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Replace
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="relative rounded-lg overflow-hidden bg-black/30 aspect-video flex items-center justify-center border-2 border-dashed border-white/10">
+                    {thankYouVideoFile ? (
+                      <div className="text-center p-4">
+                        <Video className="w-8 h-8 text-[#19E28C] mx-auto mb-2" />
+                        <p className="text-sm text-white/80 mb-1">{thankYouVideoFile.name}</p>
+                        <p className="text-xs text-white/60">
+                          {(thankYouVideoFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center p-4">
+                        <Video className="w-8 h-8 text-white/40 mx-auto mb-2" />
+                        <p className="text-sm text-white/60">No video uploaded</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <input
+                    type="file"
+                    id="thankYouVideoUpload"
+                    accept="video/*"
+                    onChange={handleThankYouVideoChange}
+                    className="hidden"
+                  />
+                  
+                  {!thankYouVideoFile ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      fullWidth
+                      onClick={() => {
+                        const input = document.getElementById('thankYouVideoUpload');
+                        input?.click();
+                      }}
+                      className="bg-white/5 border-white/10 hover:bg-white/10 gap-2"
+                    >
+                      <Video className="w-4 h-4" />
+                      Select Video
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setThankYouVideoFile(null);
+                          setThankYouVideoPreview("");
+                        }}
+                        className="bg-white/5 border-white/10 hover:bg-white/10 flex-1"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="gradient"
+                        size="sm"
+                        onClick={handleUploadThankYouVideo}
+                        disabled={isUploadingVideo}
+                        className="flex-1 gap-2"
+                      >
+                        {isUploadingVideo ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4" />
+                            Upload
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-white/60 mt-3">
+                <strong>Tip:</strong> Keep it short (10-30 seconds), genuine, and mention you'd love to work with them again!
+              </p>
+            </div>
+
             {/* Stats Card */}
             <div className="glass-card rounded-2xl p-5 sm:p-6 backdrop-blur-2xl">
               <h3 className="text-base sm:text-lg mb-4">Your Stats</h3>
