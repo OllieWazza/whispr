@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import React from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -21,7 +22,7 @@ import {
 } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { SubscriptionTierCard } from "../components/subscription-tier-card";
-import { supabase } from "../lib/supabase";
+import { supabaseAnon } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
 export function ListingDetailPage() {
@@ -46,8 +47,8 @@ export function ListingDetailPage() {
     try {
       setLoading(true);
 
-      // Fetch listing details
-      const { data: listingData, error: listingError } = await supabase
+      // Fetch listing details using anonymous client (public data)
+      const { data: listingData, error: listingError } = await supabaseAnon
         .from('listings')
         .select(`
           *,
@@ -70,8 +71,8 @@ export function ListingDetailPage() {
         return;
       }
 
-      // Fetch listing tiers
-      const { data: tiersData } = await supabase
+      // Fetch listing tiers using anonymous client (public data)
+      const { data: tiersData } = await supabaseAnon
         .from('listing_tiers')
         .select('*')
         .eq('listing_id', listingId)

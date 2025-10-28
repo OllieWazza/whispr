@@ -7,7 +7,7 @@ import whisprFullLogo from "figma:asset/98f9a622b461f32dde6404ec27a9f42267c7713d
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
-import { supabase } from "../lib/supabase";
+import { supabaseAnon } from "../lib/supabase";
 
 export function Header() {
   const { user, profile, signOut } = useAuth();
@@ -82,15 +82,15 @@ export function Header() {
       setShowSearchResults(true);
 
       try {
-        // Search creators by display_name
-        const { data: creatorsData, error: creatorsError } = await supabase
+        // Search creators by display_name using anonymous client (public data)
+        const { data: creatorsData, error: creatorsError } = await supabaseAnon
           .from('creators')
           .select('id, display_name, profile_picture_url, rating, total_completed_jobs, bio')
           .ilike('display_name', `%${searchQuery}%`)
           .limit(5);
 
-        // Search listings by title
-        const { data: listingsData, error: listingsError } = await supabase
+        // Search listings by title using anonymous client (public data)
+        const { data: listingsData, error: listingsError } = await supabaseAnon
           .from('listings')
           .select(`
             id, 

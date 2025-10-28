@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -35,7 +36,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
-import { supabase } from "../lib/supabase";
+import { supabaseAnon } from "../lib/supabase";
 import { Database } from "../lib/database.types";
 
 interface ContentItem {
@@ -75,8 +76,8 @@ export function CreatorProfilePage() {
     try {
       setLoading(true);
 
-      // Fetch creator profile
-      const { data: creatorData, error: creatorError } = await supabase
+      // Fetch creator profile using anonymous client (public data)
+      const { data: creatorData, error: creatorError } = await supabaseAnon
         .from('creators')
         .select('*')
         .eq('id', creatorId)
@@ -88,8 +89,8 @@ export function CreatorProfilePage() {
         return;
       }
 
-      // Fetch creator's listings
-      const { data: listingsData, error: listingsError } = await supabase
+      // Fetch creator's listings using anonymous client (public data)
+      const { data: listingsData, error: listingsError } = await supabaseAnon
         .from('listings')
         .select(`
           *,
