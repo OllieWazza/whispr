@@ -4,9 +4,11 @@ import { Sparkles, Zap, Heart, Headphones, Star, TrendingUp, ArrowRight, Mail, C
 import whisprLogo from "figma:asset/b10b0041e74acd561a0e6d24f00ec15acfd7fa61.png";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 export function ComingSoonPage() {
+  const navigate = useNavigate();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,13 +37,14 @@ export function ComingSoonPage() {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
   
-  // Check if site is already unlocked in localStorage
+  // Check if site is already unlocked in localStorage and redirect to home
   useEffect(() => {
     const unlocked = localStorage.getItem('whispr_site_unlocked');
     if (unlocked === 'true') {
       setIsUnlocked(true);
+      navigate('/');
     }
-  }, []);
+  }, [navigate]);
   
   const handlePasswordSubmit = () => {
     setPasswordError("");
@@ -50,6 +53,10 @@ export function ComingSoonPage() {
     if (password === SITE_PASSWORD) {
       localStorage.setItem('whispr_site_unlocked', 'true');
       setIsUnlocked(true);
+      // Redirect to home page after successful unlock
+      setTimeout(() => {
+        navigate('/');
+      }, 300); // Small delay for smooth transition
     } else {
       setPasswordError("Incorrect password. Please try again.");
       setShowPasswordShake(true);
