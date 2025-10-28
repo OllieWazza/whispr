@@ -371,92 +371,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [profile, user, loading]);
 
-  // Smart token refresh strategy (SIMPLIFIED - focus handlers disabled)
+  // Token refresh - Let Supabase handle it automatically
+  // Supabase SDK auto-refreshes tokens, we don't need manual checks
   useEffect(() => {
-    let monitorInterval: NodeJS.Timeout;
-    let visibilityRefreshTimeout: NodeJS.Timeout;
-    let lastRefreshCheckTime: number = Date.now();
-
-    const refreshToken = async (source: string = 'interval') => {
-      // Skip refresh checks when window is not visible (unless it's been a while)
-      if (document.hidden && source === 'interval') {
-        console.log('[AuthContext] ⏸️  Window hidden, skipping interval refresh check');
-        return;
-      }
-
-      const now = Date.now();
-      const timeSinceLastCheck = now - lastRefreshCheckTime;
-      
-      // Prevent rapid-fire refresh checks (minimum 30 seconds between checks)
-      if (timeSinceLastCheck < 30000 && source !== 'initial') {
-        console.log(`[AuthContext] ⏭️  Skipping refresh check (only ${Math.floor(timeSinceLastCheck / 1000)}s since last check)`);
-        return;
-      }
-      
-      lastRefreshCheckTime = now;
-
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        console.log('[AuthContext] No session found during refresh check');
-        return;
-      }
-      
-      const expiresAt = session.expires_at;
-      if (!expiresAt) {
-        console.warn('[AuthContext] Session has no expiry time');
-        return;
-      }
-      
-      const expiryTime = new Date(expiresAt * 1000);
-      const timeUntilExpiry = expiryTime.getTime() - now;
-      const minutesUntilExpiry = Math.floor(timeUntilExpiry / 1000 / 60);
-      
-      console.log(`[AuthContext] 🕐 Token expires in ${minutesUntilExpiry} minutes (${expiryTime.toLocaleTimeString()}) [${source}]`);
-      
-      // Only refresh if less than 20 minutes remaining (reduced from 30)
-      if (minutesUntilExpiry < 20 && minutesUntilExpiry > 0) {
-        console.log(`🔄 [AuthContext] Token expiring soon, refreshing... [${source}]`);
-        const { data, error } = await supabase.auth.refreshSession();
-        if (error) {
-          console.error('❌ [AuthContext] Token refresh failed:', error);
-          // Try one more time
-          console.log('🔄 [AuthContext] Retrying token refresh...');
-          const { data: retryData, error: retryError } = await supabase.auth.refreshSession();
-          if (retryError) {
-            console.error('❌ [AuthContext] Retry failed:', retryError);
-          } else {
-            console.log('✅ [AuthContext] Token refreshed successfully on retry');
-            if (retryData.session?.expires_at) {
-              const newExpiry = new Date(retryData.session.expires_at * 1000);
-              console.log('[AuthContext] New expiry:', newExpiry.toLocaleTimeString());
-            }
-          }
-        } else {
-          console.log('✅ [AuthContext] Token refreshed successfully');
-          if (data.session?.expires_at) {
-            const newExpiry = new Date(data.session.expires_at * 1000);
-            console.log('[AuthContext] New expiry:', newExpiry.toLocaleTimeString());
-          }
-        }
-      } else if (minutesUntilExpiry >= 20) {
-        console.log(`✅ [AuthContext] Token still valid for ${minutesUntilExpiry} minutes, no refresh needed`);
-      }
-    };
-
-    // Check every 3 minutes only (VERY conservative)
-    monitorInterval = setInterval(() => refreshToken('interval'), 3 * 60 * 1000);
-
-    // TEMPORARILY DISABLED: Focus/visibility handlers
-    // These were causing issues on Mac when switching spaces/apps
-    console.log('🔧 [AuthContext] Focus handlers DISABLED for testing');
-
-    // Initial check
-    refreshToken('initial');
-
+    console.log('🔧 [AuthContext] Token refresh: Relying on Supabase auto-refresh (no manual checks)');
+    
+    // Supabase SDK has built-in auto-refresh when:
+    // 1. Token is about to expire (< 60 seconds)
+    // 2. User interacts with the app
+    // We don't need aggressive manual checking
+    
     return () => {
-      clearInterval(monitorInterval);
-      clearTimeout(visibilityRefreshTimeout);
+      // Cleanup if needed
     };
   }, []);
 

@@ -80,16 +80,11 @@ export function MyProfilePage() {
   });
 
   useEffect(() => {
-    if (!user) {
-      navigate('/signin');
-      return;
+    // ProtectedRoute already handles auth checks, just fetch data when profile is ready
+    if (profile?.user_type === 'creator') {
+      fetchCreatorData();
     }
-    if (profile?.user_type !== 'creator') {
-      navigate('/');
-      return;
-    }
-    fetchCreatorData();
-  }, [user, profile]);
+  }, [profile]);
 
   const fetchCreatorData = async () => {
     try {
